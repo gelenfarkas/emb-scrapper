@@ -700,6 +700,13 @@
                 >
                   Szűrt lista exportálása
                 </button>
+                <button
+                  id="exportXlsxBtn"
+                  class="button button--secondary"
+                  disabled
+                >
+                  XLSX export
+                </button>
               </div>
               <div id="datasetNotice" class="notice notice--info is-visible">
                 Még nincs betöltött adat. Importálj egy EastMallBuy JSON fájlt,
@@ -837,6 +844,7 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script>
       (() => {
         /*
@@ -845,6 +853,8 @@
         */
         const HUF_EXCHANGE_RATE = 360;
         const DEFAULT_AFFILIATE_USERNAME = "gelenfarkas";
+        const XLSX_IMAGE_SIZE_PX = 180;
+        const xlsxImageCache = new Map();
 
         const SOURCE_LABELS = {
           network_getitemlist: "Hálózati terméklista",
@@ -872,6 +882,7 @@
           registerLinkTop: document.getElementById("registerLinkTop"),
           loadStorageBtn: document.getElementById("loadStorageBtn"),
           exportFilteredBtn: document.getElementById("exportFilteredBtn"),
+          exportXlsxBtn: document.getElementById("exportXlsxBtn"),
           datasetNotice: document.getElementById("datasetNotice"),
           errorNotice: document.getElementById("errorNotice"),
           searchInput: document.getElementById("searchInput"),
@@ -918,6 +929,7 @@
             "click",
             exportFilteredDataset,
           );
+          elements.exportXlsxBtn.addEventListener("click", exportFilteredXlsx);
           elements.resetFiltersBtn.addEventListener("click", resetFilters);
 
           [
@@ -1223,6 +1235,7 @@
           renderDebug();
 
           elements.exportFilteredBtn.disabled = !filtered.length;
+          elements.exportXlsxBtn.disabled = !filtered.length;
         }
 
         function renderAffiliateUi() {
@@ -1524,6 +1537,186 @@
           );
         }
 
+        async function exportFilteredXlsx() {
+          if (!state.filtered.length) return;
+
+          if (
+            typeof window.ExcelJS === "undefined" ||
+            !window.ExcelJS ||
+            !window.ExcelJS.Workbook
+          ) {
+            showError("Az XLSX export könyvtár nem töltődött be.");
+            return;
+          }
+
+          showError("");
+          elements.exportXlsxBtn.disabled = true;
+
+          try {
+            const workbook = new window.ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet("EastMallBuy");
+            const exportTimestamp = new Date().toISOString();
+            const exportTimestampLabel = formatExportTimestamp(exportTimestamp);
+
+            workbook.creator = "EastMallBuy Viewer";
+            workbook.created = new Date();
+            workbook.modified = new Date();
+
+            worksheet.columns = [
+              { header: "Név", key: "name", width: 44 },
+              { header: "Kép", key: "imagePreview", width: 28 },
+              { header: "Ár (USD)", key: "priceUsd", width: 14 },
+              { header: "Ár (HUF kb.)", key: "priceHuf", width: 18 },
+              { header: "EastMallBuy link", key: "affiliateUrl", width: 38 },
+              { header: "TID", key: "tid", width: 16 },
+              { header: "Találati forrás", key: "sourcePageName", width: 26 },
+              { header: "Weidian link", key: "weidianUrl", width: 34 },
+              { header: "Kép URL", key: "imageUrl", width: 34 },
+            ];
+
+            worksheet.views = [{ state: "frozen", ySplit: 1 }];
+            worksheet.autoFilter = "A1:I1";
+
+            const headerRow = worksheet.getRow(1);
+            headerRow.height = 22;
+            headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            headerRow.alignment = {
+              vertical: "middle",
+              horizontal: "center",
+              wrapText: true,
+            };
+            headerRow.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FF127166" },
+            };
+
+            const imageJobs = [];
+
+            state.filtered.forEach(function (item) {
+              const exportItem = createExportItem(item);
+              const row = worksheet.addRow({
+                name: exportItem.title || "",
+                imagePreview: exportItem.image ? "Kép" : "Nincs kép",
+                priceUsd:
+                  exportItem.price !== null && exportItem.price !== undefined
+                    ? formatUsdNumber(exportItem.price)
+                    : "",
+                priceHuf:
+                  exportItem.price !== null && exportItem.price !== undefined
+                    ? formatApproxHufValue(exportItem.price)
+                    : "",
+                affiliateUrl: exportItem.affiliateUrl || "",
+                tid: exportItem.itemId || "",
+                sourcePageName: exportItem.sellerName || "",
+                weidianUrl: resolveWeidianUrl(exportItem) || "",
+                imageUrl: exportItem.image || "",
+              });
+
+              row.height = 140;
+              row.alignment = { vertical: "middle", wrapText: true };
+
+              const linkCell = row.getCell("affiliateUrl");
+              if (exportItem.affiliateUrl) {
+                linkCell.value = {
+                  text: exportItem.affiliateUrl,
+                  hyperlink: exportItem.affiliateUrl,
+                };
+                linkCell.font = {
+                  color: { argb: "FF0563C1" },
+                  underline: true,
+                };
+              }
+
+              const weidianCell = row.getCell("weidianUrl");
+              if (resolveWeidianUrl(exportItem)) {
+                weidianCell.value = {
+                  text: resolveWeidianUrl(exportItem),
+                  hyperlink: resolveWeidianUrl(exportItem),
+                };
+                weidianCell.font = {
+                  color: { argb: "FF0563C1" },
+                  underline: true,
+                };
+              }
+
+              const imageUrlCell = row.getCell("imageUrl");
+              if (exportItem.image) {
+                imageUrlCell.value = {
+                  text: exportItem.image,
+                  hyperlink: exportItem.image,
+                };
+                imageUrlCell.font = {
+                  color: { argb: "FF0563C1" },
+                  underline: true,
+                };
+              }
+
+              imageJobs.push(
+                addWorksheetImage(
+                  workbook,
+                  worksheet,
+                  row.number,
+                  exportItem.image,
+                  row.getCell("imagePreview"),
+                ),
+              );
+            });
+
+            await Promise.all(imageJobs);
+
+            worksheet.eachRow(function (row, rowNumber) {
+              row.eachCell(function (cell) {
+                cell.border = {
+                  top: { style: "thin", color: { argb: "FFD7CFC6" } },
+                  left: { style: "thin", color: { argb: "FFD7CFC6" } },
+                  bottom: { style: "thin", color: { argb: "FFD7CFC6" } },
+                  right: { style: "thin", color: { argb: "FFD7CFC6" } },
+                };
+
+                if (rowNumber > 1) {
+                  cell.alignment = {
+                    vertical: "middle",
+                    wrapText: true,
+                  };
+                }
+              });
+            });
+
+            const metaSheet = workbook.addWorksheet("Meta");
+            metaSheet.columns = [
+              { header: "Kulcs", key: "key", width: 26 },
+              { header: "Érték", key: "value", width: 60 },
+            ];
+            metaSheet.addRows([
+              { key: "Export ideje", value: exportTimestampLabel },
+              {
+                key: "Aktív affiliate partner",
+                value: state.settings.affiliateUsername || "",
+              },
+              { key: "Lista címe", value: state.meta.pageTitle || "" },
+              { key: "Forrásoldal", value: state.meta.sourcePageName || "" },
+              {
+                key: "Szűrt termékek száma",
+                value: String(state.filtered.length),
+              },
+            ]);
+            metaSheet.getRow(1).font = { bold: true };
+            metaSheet.views = [{ state: "frozen", ySplit: 1 }];
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            downloadBlob(
+              buildXlsxExportName(),
+              buffer,
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            );
+          } catch (error) {
+            showError("Nem sikerült elkészíteni az XLSX exportot.");
+          } finally {
+            elements.exportXlsxBtn.disabled = !state.filtered.length;
+          }
+        }
+
         function createExportItem(item) {
           const base =
             item.__json && typeof item.__json === "object"
@@ -1545,6 +1738,110 @@
           base.source = item.source || "";
           base.raw = item.raw || {};
           return base;
+        }
+
+        async function addWorksheetImage(
+          workbook,
+          worksheet,
+          rowNumber,
+          imageUrl,
+          fallbackCell,
+        ) {
+          if (!imageUrl) {
+            return;
+          }
+
+          try {
+            const imagePayload = await getImagePayload(imageUrl);
+            if (!imagePayload) {
+              if (fallbackCell) {
+                fallbackCell.value = {
+                  text: imageUrl,
+                  hyperlink: imageUrl,
+                };
+              }
+              return;
+            }
+
+            const imageId = workbook.addImage({
+              base64: imagePayload.base64,
+              extension: imagePayload.extension,
+            });
+
+            worksheet.addImage(imageId, {
+              tl: { col: 1.1, row: rowNumber - 0.85 },
+              ext: {
+                width: XLSX_IMAGE_SIZE_PX,
+                height: XLSX_IMAGE_SIZE_PX,
+              },
+              editAs: "oneCell",
+            });
+
+            if (fallbackCell) {
+              fallbackCell.value = "Beágyazott kép";
+            }
+          } catch (error) {
+            if (fallbackCell) {
+              fallbackCell.value = {
+                text: imageUrl,
+                hyperlink: imageUrl,
+              };
+            }
+          }
+        }
+
+        async function getImagePayload(imageUrl) {
+          const normalizedUrl = cleanText(imageUrl);
+          if (!normalizedUrl) {
+            return null;
+          }
+
+          if (xlsxImageCache.has(normalizedUrl)) {
+            return xlsxImageCache.get(normalizedUrl);
+          }
+
+          try {
+            const response = await fetch(normalizedUrl, { mode: "cors" });
+            if (!response.ok) {
+              throw new Error("image-fetch-failed");
+            }
+
+            const blob = await response.blob();
+            const base64 = await blobToDataUrl(blob);
+            const extension = detectImageExtension(blob.type, normalizedUrl);
+            const payload = { base64: base64, extension: extension };
+
+            xlsxImageCache.set(normalizedUrl, payload);
+            return payload;
+          } catch (error) {
+            xlsxImageCache.set(normalizedUrl, null);
+            return null;
+          }
+        }
+
+        function blobToDataUrl(blob) {
+          return new Promise(function (resolve, reject) {
+            const reader = new FileReader();
+            reader.onload = function () {
+              resolve(String(reader.result || ""));
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        function detectImageExtension(contentType, imageUrl) {
+          const normalizedType = cleanText(contentType).toLowerCase();
+          if (normalizedType.includes("png")) return "png";
+          if (normalizedType.includes("jpeg") || normalizedType.includes("jpg"))
+            return "jpeg";
+          if (normalizedType.includes("gif")) return "gif";
+
+          const url = cleanText(imageUrl).toLowerCase();
+          if (/\.png(?:$|[?#])/.test(url)) return "png";
+          if (/\.(?:jpg|jpeg)(?:$|[?#])/.test(url)) return "jpeg";
+          if (/\.gif(?:$|[?#])/.test(url)) return "gif";
+          return "png";
         }
 
         function resetFilters() {
@@ -1865,6 +2162,18 @@
           return `kb. ${formatInteger(huf)} Ft`;
         }
 
+        function formatApproxHufValue(usd) {
+          if (
+            usd === null ||
+            usd === undefined ||
+            !Number.isFinite(Number(usd))
+          ) {
+            return "";
+          }
+
+          return `${formatInteger(Math.round(Number(usd) * HUF_EXCHANGE_RATE))} Ft`;
+        }
+
         function formatPriceDisplay(item) {
           if (!item || item.price === null) {
             return "Ár: nincs adat";
@@ -2045,6 +2354,12 @@
           const blob = new Blob([JSON.stringify(payload, null, 2)], {
             type: "application/json;charset=utf-8",
           });
+          downloadBlob(filename, blob, "application/json;charset=utf-8");
+        }
+
+        function downloadBlob(filename, data, mimeType) {
+          const blob =
+            data instanceof Blob ? data : new Blob([data], { type: mimeType });
           const objectUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = objectUrl;
@@ -2056,6 +2371,34 @@
           setTimeout(function () {
             URL.revokeObjectURL(objectUrl);
           }, 1200);
+        }
+
+        function buildXlsxExportName() {
+          return `eastmallbuy-products-filtered-${buildTimestampForFilename()}.xlsx`;
+        }
+
+        function buildTimestampForFilename() {
+          const now = new Date();
+          const year = String(now.getFullYear());
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const day = String(now.getDate()).padStart(2, "0");
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          return `${year}-${month}-${day}-${hours}-${minutes}`;
+        }
+
+        function formatExportTimestamp(value) {
+          try {
+            return new Intl.DateTimeFormat("hu-HU", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(value));
+          } catch (error) {
+            return cleanText(value);
+          }
         }
       })();
     </script>
