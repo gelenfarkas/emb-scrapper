@@ -26,7 +26,7 @@
     // Általános működés
     // --------------------------------------------
     debug: true, // Írjon-e részletes állapotüzeneteket a konzolba futás közben.
-    maxItems: 180, // Legfeljebb ennyi egyedi terméket tartson meg a végső listában.
+    maxItems: 200, // Legfeljebb ennyi egyedi terméket tartson meg a végső listában.
     // Ajánlott érték kisebb bolthoz: 100-300
     // Ajánlott érték nagyobb bolthoz: 500+
 
