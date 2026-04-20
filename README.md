@@ -1,6 +1,7 @@
 # 🛍️ EastMallBuy Extractor + Katalógusnézet
 
 Egyszerű, böngészőben futtatható eszköz EastMallBuy shopok termékeinek kinyerésére és átlátható megjelenítésére.
+Youtube magyarázó: https://youtu.be/9Tke1cRVX20
 
 A projekt 2 részből áll:
 
