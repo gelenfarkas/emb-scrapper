@@ -1,0 +1,1961 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EastMallBuy Katalógusnézet</title>
+    <style>
+      :root {
+        --bg: #f7f2ea;
+        --bg-accent:
+          radial-gradient(
+            circle at top left,
+            rgba(193, 93, 63, 0.15),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at right,
+            rgba(18, 113, 102, 0.16),
+            transparent 24%
+          ),
+          linear-gradient(180deg, #fbf6ef 0%, #f1e6d6 100%);
+        --surface: rgba(255, 250, 243, 0.88);
+        --surface-strong: rgba(255, 249, 241, 0.98);
+        --surface-border: rgba(91, 67, 49, 0.14);
+        --text: #241913;
+        --muted: #6d5a4d;
+        --primary: #127166;
+        --primary-strong: #0c564e;
+        --accent: #c15d3f;
+        --danger: #b1432b;
+        --shadow: 0 24px 60px rgba(49, 31, 19, 0.12);
+        --card-shadow: 0 16px 36px rgba(49, 31, 19, 0.09);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --font-display: "Trebuchet MS", "Segoe UI", sans-serif;
+        --font-body: "Segoe UI", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--bg);
+        background-image: var(--bg-accent);
+        color: var(--text);
+        font-family: var(--font-body);
+      }
+
+      body {
+        padding: 24px;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      code,
+      pre {
+        font-family: Consolas, "Courier New", monospace;
+      }
+
+      .app {
+        max-width: 1500px;
+        margin: 0 auto;
+        display: grid;
+        gap: 24px;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 30px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .hero__top {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+
+      .hero__content {
+        display: grid;
+        gap: 14px;
+        max-width: 860px;
+      }
+
+      .hero__actions {
+        display: grid;
+        gap: 10px;
+        min-width: min(100%, 320px);
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 4vw, 4rem);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+        font-size: 1rem;
+      }
+
+      .hero__points {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .point {
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--surface-border);
+        background: var(--surface-strong);
+        padding: 18px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .point strong {
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.82rem;
+      }
+
+      .point span {
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.5;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 390px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .sidebar,
+      .content {
+        display: grid;
+        gap: 24px;
+      }
+
+      .section {
+        padding: 22px;
+      }
+
+      .section-title {
+        margin: 0 0 14px;
+        font-family: var(--font-display);
+        font-size: 1.22rem;
+        letter-spacing: -0.03em;
+      }
+
+      .section-intro {
+        margin: 0 0 16px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .field-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field label {
+        font-size: 0.92rem;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .field-help {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+
+      input,
+      select {
+        width: 100%;
+        min-height: 46px;
+        padding: 12px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--surface-border);
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text);
+        outline: none;
+        transition:
+          border-color 0.18s ease,
+          box-shadow 0.18s ease,
+          transform 0.18s ease;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: color-mix(in srgb, var(--primary) 55%, white);
+        box-shadow: 0 0 0 4px
+          color-mix(in srgb, var(--primary) 15%, transparent);
+        transform: translateY(-1px);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .button {
+        min-height: 46px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease,
+          opacity 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(53, 30, 19, 0.14);
+      }
+
+      .button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+      }
+
+      .button--primary {
+        background: linear-gradient(
+          135deg,
+          var(--primary) 0%,
+          color-mix(in srgb, var(--primary) 80%, #0f766e) 100%
+        );
+        color: white;
+      }
+
+      .button--secondary {
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text);
+        border: 1px solid var(--surface-border);
+      }
+
+      .button--accent {
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          color-mix(in srgb, var(--accent) 78%, #ea580c) 100%
+        );
+        color: white;
+      }
+
+      .button--ghost {
+        background: rgba(18, 113, 102, 0.08);
+        color: var(--primary-strong);
+        border: 1px solid var(--surface-border);
+      }
+
+      .button--small {
+        min-height: 38px;
+        padding: 0 12px;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .notice {
+        display: none;
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--surface-border);
+        font-weight: 600;
+        line-height: 1.5;
+      }
+
+      .notice.is-visible {
+        display: block;
+      }
+
+      .notice--info {
+        background: rgba(18, 113, 102, 0.08);
+        color: var(--primary-strong);
+      }
+
+      .notice--error {
+        background: rgba(177, 67, 43, 0.08);
+        color: var(--danger);
+      }
+
+      .overview {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .overview-card {
+        border-radius: var(--radius-lg);
+        background: var(--surface-strong);
+        border: 1px solid var(--surface-border);
+        padding: 16px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .overview-card small {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .overview-card strong {
+        font-family: var(--font-display);
+        font-size: 1.45rem;
+        letter-spacing: -0.03em;
+      }
+
+      .summary-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .summary-row {
+        display: grid;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--surface-border);
+        background: var(--surface-strong);
+      }
+
+      .summary-row small {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .summary-row strong {
+        word-break: break-word;
+        line-height: 1.5;
+      }
+
+      .products {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .product-card {
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--surface-border);
+        background: rgba(255, 252, 247, 0.96);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        display: grid;
+        min-height: 100%;
+      }
+
+      .product-image {
+        aspect-ratio: 1 / 1;
+        background: linear-gradient(
+          135deg,
+          rgba(18, 113, 102, 0.08),
+          rgba(193, 93, 63, 0.12)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .product-body {
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .product-title {
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.45;
+        min-height: 2.9em;
+      }
+
+      .product-info {
+        display: grid;
+        gap: 10px;
+      }
+
+      .info-row {
+        display: grid;
+        gap: 4px;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        background: rgba(18, 113, 102, 0.05);
+        border: 1px solid rgba(18, 113, 102, 0.08);
+      }
+
+      .info-row__label {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .info-row__value {
+        font-size: 0.96rem;
+        line-height: 1.45;
+        color: var(--text);
+        word-break: break-word;
+      }
+
+      .product-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .results-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .empty {
+        border-radius: var(--radius-lg);
+        border: 1px dashed var(--surface-border);
+        padding: 28px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.45);
+        text-align: center;
+        font-weight: 600;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .list li {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--surface-border);
+        background: var(--surface-strong);
+        padding: 12px 14px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        line-height: 1.55;
+        word-break: break-word;
+      }
+
+      details summary {
+        cursor: pointer;
+        font-weight: 800;
+        color: var(--text);
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(36, 25, 19, 0.52);
+        z-index: 9999;
+      }
+
+      .modal.is-visible {
+        display: flex;
+      }
+
+      .modal__dialog {
+        width: min(980px, 100%);
+        max-height: min(84vh, 920px);
+        background: #fffaf4;
+        border: 1px solid var(--surface-border);
+        border-radius: 24px;
+        box-shadow: 0 32px 80px rgba(30, 17, 10, 0.28);
+        display: grid;
+        overflow: hidden;
+      }
+
+      .modal__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--surface-border);
+        background: rgba(255, 248, 239, 0.95);
+      }
+
+      .modal__title {
+        margin: 0;
+        font-size: 1.08rem;
+        font-family: var(--font-display);
+      }
+
+      .modal__body {
+        padding: 18px;
+        overflow: auto;
+      }
+
+      .modal__body pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+
+      @media (max-width: 1220px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .hero__points,
+        .overview {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 14px;
+        }
+
+        .hero,
+        .section {
+          padding: 18px;
+        }
+
+        .products {
+          grid-template-columns: 1fr;
+        }
+
+        .modal__dialog {
+          max-height: 90vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <section class="panel hero">
+        <div class="hero__top">
+          <div class="hero__content">
+            <h1>EastMallBuy Katalógusnézet</h1>
+            <p>
+              Tölts be egy EastMallBuy JSON listát, és azonnal átlátható,
+              laikusbarát terméknézetet kapsz. Az árak, a találati források és a
+              megnyitási linkek tisztán, egyszerűen jelennek meg, hogy könnyen
+              lehessen böngészni és továbbküldeni a termékeket.
+            </p>
+          </div>
+          <div class="hero__actions">
+            <a
+              id="registerLinkTop"
+              class="button button--primary"
+              href="https://www.eastmallbuy.com/web/#/register?inviter=gelenfarkas"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              EastMallBuy regisztráció
+            </a>
+            <a
+              class="button button--accent"
+              href="https://gelencseristvan.hu/becsuletkassza/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ha tetszik az alkalmazás, támogass
+            </a>
+          </div>
+        </div>
+
+        <div class="hero__points">
+          <div class="point">
+            <strong>1. Betöltés</strong>
+            <span
+              >Importáld a letöltött EastMallBuy JSON fájlt vagy a legutóbbi
+              mentett eredményt.</span
+            >
+          </div>
+          <div class="point">
+            <strong>2. Szűrés</strong>
+            <span
+              >Kereshetsz cím, TID, ár vagy találati forrás alapján, majd
+              gyorsan átnézheted a listát.</span
+            >
+          </div>
+          <div class="point">
+            <strong>3. Megnyitás</strong>
+            <span
+              >A kártyákon rögtön eléred az EastMallBuy oldalt, a Weidian linket
+              és az adott termék adatait.</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="panel section">
+            <h2 class="section-title">Adatbetöltés</h2>
+            <p class="section-intro">
+              Töltsd be a JSON fájlt, majd ha szeretnéd, állítsd be az affiliate
+              felhasználónevet a megnyitási linkekhez és az exporthoz.
+            </p>
+            <div class="field-grid">
+              <div class="field">
+                <label for="fileInput">EastMallBuy JSON importálása</label>
+                <input
+                  id="fileInput"
+                  type="file"
+                  accept=".json,application/json"
+                />
+              </div>
+              <div class="field">
+                <label for="affiliateInput">Affiliate felhasználónév</label>
+                <input
+                  id="affiliateInput"
+                  type="text"
+                  value="gelenfarkas"
+                  placeholder="pl. gelenfarkas"
+                />
+                <p class="field-help">
+                  Ezt fogják használni az EastMallBuy megnyitási linkek és a
+                  szűrt export.
+                </p>
+              </div>
+              <div class="actions">
+                <button id="loadStorageBtn" class="button button--primary">
+                  Legutóbbi eredmény betöltése
+                </button>
+                <button
+                  id="exportFilteredBtn"
+                  class="button button--accent"
+                  disabled
+                >
+                  Szűrt lista exportálása
+                </button>
+              </div>
+              <div id="datasetNotice" class="notice notice--info is-visible">
+                Még nincs betöltött adat. Importálj egy EastMallBuy JSON fájlt,
+                vagy töltsd be a legutóbbi extractor-eredményt.
+              </div>
+              <div id="errorNotice" class="notice notice--error"></div>
+            </div>
+          </section>
+
+          <section class="panel section">
+            <h2 class="section-title">Keresés és szűrés</h2>
+            <div class="field-grid">
+              <div class="field">
+                <label for="searchInput">Keresés</label>
+                <input
+                  id="searchInput"
+                  type="search"
+                  placeholder="Cím, TID, találati forrás vagy ár"
+                />
+              </div>
+              <div class="field">
+                <label for="sourceFilter">Forrás típusa</label>
+                <select id="sourceFilter">
+                  <option value="">Összes forrás</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="minPriceInput">Minimum ár (USD)</label>
+                <input
+                  id="minPriceInput"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="pl. 10"
+                />
+              </div>
+              <div class="field">
+                <label for="maxPriceInput">Maximum ár (USD)</label>
+                <input
+                  id="maxPriceInput"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="pl. 99.99"
+                />
+              </div>
+              <div class="field">
+                <label for="sortSelect">Rendezés</label>
+                <select id="sortSelect">
+                  <option value="default">Alap sorrend</option>
+                  <option value="title-asc">Cím A-Z</option>
+                  <option value="title-desc">Cím Z-A</option>
+                  <option value="price-asc">Ár növekvő</option>
+                  <option value="price-desc">Ár csökkenő</option>
+                  <option value="seller-asc">Találati forrás A-Z</option>
+                </select>
+              </div>
+              <div class="actions">
+                <button id="resetFiltersBtn" class="button button--secondary">
+                  Szűrők törlése
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel section">
+            <h2 class="section-title">Lista összegzése</h2>
+            <div class="summary-grid" id="summaryGrid"></div>
+            <details style="margin-top: 16px">
+              <summary>Haladó technikai adatok</summary>
+              <ul class="list" id="debugList"></ul>
+            </details>
+          </section>
+        </aside>
+
+        <main class="content">
+          <section class="panel section">
+            <div class="results-top">
+              <div>
+                <h2 class="section-title" style="margin-bottom: 6px">
+                  Terméklista
+                </h2>
+                <div id="resultsSummary" class="notice notice--info is-visible">
+                  A betöltött termékek itt jelennek meg.
+                </div>
+              </div>
+              <div class="overview">
+                <div class="overview-card">
+                  <small>Összes termék</small>
+                  <strong id="statTotal">0</strong>
+                </div>
+                <div class="overview-card">
+                  <small>Látható termék</small>
+                  <strong id="statVisible">0</strong>
+                </div>
+                <div class="overview-card">
+                  <small>Áras termék</small>
+                  <strong id="statPriced">0</strong>
+                </div>
+                <div class="overview-card">
+                  <small>Egyedi TID</small>
+                  <strong id="statUniqueIds">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div id="emptyState" class="empty">
+              Tölts be egy JSON fájlt, és itt megjelennek a termékkártyák.
+            </div>
+            <div id="productsGrid" class="products"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="itemJsonModal" class="modal" aria-hidden="true">
+      <div
+        class="modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="itemJsonTitle"
+      >
+        <div class="modal__header">
+          <h2 id="itemJsonTitle" class="modal__title">Termék adatai</h2>
+          <button
+            id="closeItemJsonBtn"
+            class="button button--secondary button--small"
+          >
+            Bezárás
+          </button>
+        </div>
+        <div class="modal__body">
+          <pre id="itemJsonOutput"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        /*
+          Ez csak becsült forintos átszámításhoz van.
+          Ha szeretnéd, később egyszerűen módosíthatod.
+        */
+        const HUF_EXCHANGE_RATE = 360;
+        const DEFAULT_AFFILIATE_USERNAME = "gelenfarkas";
+
+        const SOURCE_LABELS = {
+          network_getitemlist: "Hálózati terméklista",
+          network_getitemlist_plus_dom:
+            "Hálózati lista + oldalról kiolvasott adatok",
+          initial_dom_plus_network_plus_final_dom:
+            "Induló lista + hálózati lista + végső lista",
+          goods_list_dom_only: "Közvetlenül az oldal listájából",
+          goods_list_dom: "Közvetlenül az oldal listájából",
+          none: "Nincs használható forrás",
+        };
+
+        const state = {
+          dataset: [],
+          filtered: [],
+          meta: createEmptyMeta(),
+          settings: {
+            affiliateUsername: DEFAULT_AFFILIATE_USERNAME,
+          },
+        };
+
+        const elements = {
+          fileInput: document.getElementById("fileInput"),
+          affiliateInput: document.getElementById("affiliateInput"),
+          registerLinkTop: document.getElementById("registerLinkTop"),
+          loadStorageBtn: document.getElementById("loadStorageBtn"),
+          exportFilteredBtn: document.getElementById("exportFilteredBtn"),
+          datasetNotice: document.getElementById("datasetNotice"),
+          errorNotice: document.getElementById("errorNotice"),
+          searchInput: document.getElementById("searchInput"),
+          sourceFilter: document.getElementById("sourceFilter"),
+          minPriceInput: document.getElementById("minPriceInput"),
+          maxPriceInput: document.getElementById("maxPriceInput"),
+          sortSelect: document.getElementById("sortSelect"),
+          resetFiltersBtn: document.getElementById("resetFiltersBtn"),
+          summaryGrid: document.getElementById("summaryGrid"),
+          debugList: document.getElementById("debugList"),
+          resultsSummary: document.getElementById("resultsSummary"),
+          statTotal: document.getElementById("statTotal"),
+          statVisible: document.getElementById("statVisible"),
+          statPriced: document.getElementById("statPriced"),
+          statUniqueIds: document.getElementById("statUniqueIds"),
+          productsGrid: document.getElementById("productsGrid"),
+          emptyState: document.getElementById("emptyState"),
+          itemJsonModal: document.getElementById("itemJsonModal"),
+          itemJsonTitle: document.getElementById("itemJsonTitle"),
+          itemJsonOutput: document.getElementById("itemJsonOutput"),
+          closeItemJsonBtn: document.getElementById("closeItemJsonBtn"),
+        };
+
+        init();
+
+        function init() {
+          bindEvents();
+          renderAffiliateUi();
+          refreshStorageButtonState();
+          render();
+        }
+
+        function bindEvents() {
+          elements.fileInput.addEventListener("change", handleFileImport);
+          elements.affiliateInput.addEventListener(
+            "input",
+            handleAffiliateInputChange,
+          );
+          elements.loadStorageBtn.addEventListener(
+            "click",
+            loadFromLocalStorage,
+          );
+          elements.exportFilteredBtn.addEventListener(
+            "click",
+            exportFilteredDataset,
+          );
+          elements.resetFiltersBtn.addEventListener("click", resetFilters);
+
+          [
+            elements.searchInput,
+            elements.sourceFilter,
+            elements.minPriceInput,
+            elements.maxPriceInput,
+            elements.sortSelect,
+          ].forEach(function (element) {
+            element.addEventListener("input", render);
+            element.addEventListener("change", render);
+          });
+
+          elements.productsGrid.addEventListener(
+            "click",
+            handleProductGridClick,
+          );
+          elements.closeItemJsonBtn.addEventListener(
+            "click",
+            closeItemJsonModal,
+          );
+          elements.itemJsonModal.addEventListener("click", function (event) {
+            if (event.target === elements.itemJsonModal) {
+              closeItemJsonModal();
+            }
+          });
+
+          document.addEventListener("keydown", function (event) {
+            if (
+              event.key === "Escape" &&
+              elements.itemJsonModal.classList.contains("is-visible")
+            ) {
+              closeItemJsonModal();
+            }
+          });
+        }
+
+        function handleAffiliateInputChange() {
+          state.settings.affiliateUsername = normalizeAffiliateUsername(
+            elements.affiliateInput.value,
+          );
+          renderAffiliateUi();
+          renderProducts(state.filtered);
+          renderSummary();
+        }
+
+        function handleFileImport(event) {
+          const file = event.target.files && event.target.files[0];
+          if (!file) return;
+
+          showError("");
+          const reader = new FileReader();
+
+          reader.onload = function () {
+            try {
+              const parsed = JSON.parse(String(reader.result || ""));
+              ingestPayload(parsed, false);
+              showInfo(`Betöltve: ${file.name}`);
+            } catch (error) {
+              showError("Nem sikerült értelmezni a kiválasztott JSON fájlt.");
+            } finally {
+              elements.fileInput.value = "";
+            }
+          };
+
+          reader.onerror = function () {
+            showError("Nem sikerült beolvasni a kiválasztott fájlt.");
+            elements.fileInput.value = "";
+          };
+
+          reader.readAsText(file, "utf-8");
+        }
+
+        function loadFromLocalStorage() {
+          showError("");
+          const raw = localStorage.getItem("eastmallbuy_last_products");
+          if (!raw) {
+            showError(
+              "Nem található mentett extractor-eredmény a localStorage-ban.",
+            );
+            refreshStorageButtonState();
+            return;
+          }
+
+          try {
+            ingestPayload(JSON.parse(raw), true);
+            showInfo("A legutóbbi eredmény betöltve a localStorage-ból.");
+          } catch (error) {
+            showError(
+              "A localStorage-ban lévő JSON sérült vagy nem értelmezhető.",
+            );
+          }
+        }
+
+        function ingestPayload(payload, loadedFromStorage) {
+          const normalized = normalizePayload(payload, loadedFromStorage);
+          state.dataset = normalized.items;
+          state.meta = normalized.meta;
+          state.filtered = normalized.items.slice();
+
+          const payloadAffiliate = normalizeAffiliateUsername(
+            readPath(payload, ["affiliate", "username"]) || "",
+          );
+
+          state.settings.affiliateUsername =
+            payloadAffiliate ||
+            state.settings.affiliateUsername ||
+            DEFAULT_AFFILIATE_USERNAME;
+
+          elements.affiliateInput.value = state.settings.affiliateUsername;
+
+          populateSourceFilter(state.dataset);
+          refreshStorageButtonState();
+          renderAffiliateUi();
+          render();
+        }
+
+        function normalizePayload(payload, loadedFromStorage) {
+          const root = payload && typeof payload === "object" ? payload : {};
+          const incomingItems = Array.isArray(root.items)
+            ? root.items
+            : Array.isArray(root)
+              ? root
+              : [];
+          const dedupedItems = dedupeItems(
+            incomingItems.map(function (item, index) {
+              return normalizeItem(item, root, index);
+            }),
+          );
+
+          const meta = {
+            source: root.source || inferDatasetSource(dedupedItems),
+            sourceLabel:
+              root.sourceLabel ||
+              explainSource(root.source || inferDatasetSource(dedupedItems)),
+            generatedAt: root.generatedAt || "",
+            pageHref: readPath(root, ["page", "href"]) || "",
+            pageTitle: readPath(root, ["page", "title"]) || document.title,
+            sourcePageName: resolveDatasetSourcePageName(root, dedupedItems),
+            affiliateUsername:
+              normalizeAffiliateUsername(
+                readPath(root, ["affiliate", "username"]) || "",
+              ) || DEFAULT_AFFILIATE_USERNAME,
+            loadedFromStorage: loadedFromStorage,
+            stats: buildStats(
+              dedupedItems,
+              root.stats || {},
+              loadedFromStorage,
+            ),
+            debug: root.debug || null,
+          };
+
+          return {
+            items: dedupedItems,
+            meta: meta,
+          };
+        }
+
+        function normalizeItem(item, root, index) {
+          const source = cleanText(
+            item && item.source
+              ? item.source
+              : root.source || "network_getitemlist",
+          );
+          const url = firstNonEmptyString([
+            item && item.url,
+            readPath(item, ["raw", "detail_url"]),
+            readPath(item, ["raw", "href"]),
+          ]);
+          const sourcePageName = resolveItemSourcePageName(item, root);
+
+          return {
+            ...(item || {}),
+            __index: index,
+            __json: item && typeof item === "object" ? item : {},
+            title: cleanText(
+              item && item.title ? item.title : "Névtelen termék",
+            ),
+            itemId: cleanText(item && item.itemId ? item.itemId : ""),
+            price: parsePrice(item ? item.price : null),
+            priceLabel: cleanText(
+              item && item.priceLabel ? item.priceLabel : "",
+            ),
+            image: firstNonEmptyString([item && item.image]),
+            url: cleanText(url),
+            affiliateUrl: cleanText(
+              item && item.affiliateUrl ? item.affiliateUrl : "",
+            ),
+            sourcePageName: sourcePageName,
+            source: source || "network_getitemlist",
+            sourceLabel: explainSource(source || "network_getitemlist"),
+            weidianUrl: resolveWeidianUrl(item),
+            raw:
+              item &&
+              typeof item === "object" &&
+              item.raw &&
+              typeof item.raw === "object"
+                ? item.raw
+                : {},
+          };
+        }
+
+        function dedupeItems(items) {
+          const map = new Map();
+
+          items.forEach(function (item) {
+            if (!item) return;
+            const key = buildItemKey(item);
+            if (!key) return;
+
+            if (!map.has(key)) {
+              map.set(key, item);
+            } else {
+              map.set(key, pickBetter(map.get(key), item));
+            }
+          });
+
+          return Array.from(map.values());
+        }
+
+        function buildItemKey(item) {
+          return cleanText(
+            item.itemId ||
+              item.url ||
+              [item.title || "", item.image || ""].join("|"),
+          );
+        }
+
+        function buildStats(items, incomingStats, loadedFromStorage) {
+          const uniqueIds = new Set(
+            items
+              .map(function (item) {
+                return item.itemId;
+              })
+              .filter(Boolean),
+          ).size;
+
+          const pricedItems = items.filter(function (item) {
+            return item.price !== null;
+          }).length;
+
+          return {
+            requestedMaxItems: numberOrFallback(
+              incomingStats.requestedMaxItems,
+              items.length,
+            ),
+            uniqueItemIds: numberOrFallback(
+              incomingStats.uniqueItemIds,
+              uniqueIds,
+            ),
+            pricedItems: numberOrFallback(
+              incomingStats.pricedItems,
+              pricedItems,
+            ),
+            loadOrigin:
+              incomingStats.loadOrigin ||
+              (loadedFromStorage ? "localStorage" : "import"),
+            primarySource: incomingStats.primarySource || "",
+            durationMs: numberOrFallback(incomingStats.durationMs, 0),
+          };
+        }
+
+        function populateSourceFilter(items) {
+          const currentValue = elements.sourceFilter.value;
+          const sources = Array.from(
+            new Set(
+              items
+                .map(function (item) {
+                  return item.source || "network_getitemlist";
+                })
+                .filter(Boolean),
+            ),
+          ).sort();
+
+          elements.sourceFilter.innerHTML =
+            '<option value="">Összes forrás</option>';
+          sources.forEach(function (source) {
+            const option = document.createElement("option");
+            option.value = source;
+            option.textContent = explainSource(source);
+            elements.sourceFilter.appendChild(option);
+          });
+
+          if (sources.includes(currentValue)) {
+            elements.sourceFilter.value = currentValue;
+          }
+        }
+
+        function render() {
+          const filtered = applyFilters(state.dataset);
+          state.filtered = filtered;
+
+          renderAffiliateUi();
+          renderStats();
+          renderProducts(filtered);
+          renderSummary();
+          renderDebug();
+
+          elements.exportFilteredBtn.disabled = !filtered.length;
+        }
+
+        function renderAffiliateUi() {
+          elements.registerLinkTop.href = buildAffiliateRegisterUrl(
+            state.settings.affiliateUsername,
+          );
+        }
+
+        function applyFilters(items) {
+          const search = cleanText(elements.searchInput.value).toLowerCase();
+          const source = elements.sourceFilter.value;
+          const minPrice = parseNumberInput(elements.minPriceInput.value);
+          const maxPrice = parseNumberInput(elements.maxPriceInput.value);
+          const sort = elements.sortSelect.value;
+
+          const filtered = items.filter(function (item) {
+            const haystack = [
+              item.title,
+              item.itemId,
+              item.source,
+              item.sourceLabel,
+              item.sourcePageName,
+              item.priceLabel,
+              item.url,
+              item.affiliateUrl,
+              item.weidianUrl,
+            ]
+              .join(" ")
+              .toLowerCase();
+
+            if (search && !haystack.includes(search)) return false;
+            if (source && item.source !== source) return false;
+            if (
+              minPrice !== null &&
+              (item.price === null || item.price < minPrice)
+            )
+              return false;
+            if (
+              maxPrice !== null &&
+              (item.price === null || item.price > maxPrice)
+            )
+              return false;
+            return true;
+          });
+
+          return filtered.sort(function (a, b) {
+            switch (sort) {
+              case "title-asc":
+                return a.title.localeCompare(b.title, "hu");
+              case "title-desc":
+                return b.title.localeCompare(a.title, "hu");
+              case "price-asc":
+                return compareNullableNumber(a.price, b.price);
+              case "price-desc":
+                return compareNullableNumber(b.price, a.price);
+              case "seller-asc":
+                return a.sourcePageName.localeCompare(b.sourcePageName, "hu");
+              default:
+                return a.__index - b.__index;
+            }
+          });
+        }
+
+        function renderStats() {
+          const uniqueIds = new Set(
+            state.filtered
+              .map(function (item) {
+                return item.itemId;
+              })
+              .filter(Boolean),
+          ).size;
+
+          const pricedItems = state.filtered.filter(function (item) {
+            return item.price !== null;
+          }).length;
+
+          elements.statTotal.textContent = formatInteger(state.dataset.length);
+          elements.statVisible.textContent = formatInteger(
+            state.filtered.length,
+          );
+          elements.statPriced.textContent = formatInteger(pricedItems);
+          elements.statUniqueIds.textContent = formatInteger(uniqueIds);
+
+          if (!state.dataset.length) {
+            elements.resultsSummary.textContent =
+              "A betöltött termékek itt jelennek meg.";
+            return;
+          }
+
+          elements.resultsSummary.textContent = `${formatInteger(state.filtered.length)} / ${formatInteger(state.dataset.length)} termék látható a jelenlegi szűrők mellett.`;
+        }
+
+        function renderProducts(items) {
+          elements.productsGrid.innerHTML = "";
+          elements.emptyState.style.display = items.length ? "none" : "block";
+
+          items.forEach(function (item) {
+            const card = document.createElement("article");
+            card.className = "product-card";
+
+            const image = document.createElement("div");
+            image.className = "product-image";
+
+            if (item.image) {
+              const img = document.createElement("img");
+              img.src = item.image;
+              img.alt = item.title || "Termék";
+              img.loading = "lazy";
+              image.appendChild(img);
+            } else {
+              image.textContent = "Nincs kép";
+            }
+
+            const body = document.createElement("div");
+            body.className = "product-body";
+
+            const title = document.createElement("h3");
+            title.className = "product-title";
+            title.textContent = item.title || "Névtelen termék";
+
+            const info = document.createElement("div");
+            info.className = "product-info";
+            info.appendChild(createInfoRow("Ár", formatPriceDisplay(item)));
+            info.appendChild(
+              createInfoRow(
+                "Találati forrás",
+                item.sourcePageName || "EastMallBuy listaoldal",
+              ),
+            );
+            info.appendChild(createInfoRow("TID", item.itemId || "nincs adat"));
+
+            const links = document.createElement("div");
+            links.className = "product-links";
+
+            const eastMallLink = createLinkButton(
+              "EastMallBuy megnyitása",
+              resolveItemAffiliateUrl(item),
+              "button button--primary button--small",
+            );
+            if (eastMallLink) {
+              links.appendChild(eastMallLink);
+            }
+
+            const weidianLink = createLinkButton(
+              "Weidian megnyitása",
+              item.weidianUrl,
+              "button button--ghost button--small",
+            );
+            if (weidianLink) {
+              links.appendChild(weidianLink);
+            }
+
+            const detailsButton = document.createElement("button");
+            detailsButton.type = "button";
+            detailsButton.className = "button button--secondary button--small";
+            detailsButton.textContent = "Adatok";
+            detailsButton.dataset.action = "view-item-json";
+            detailsButton.dataset.itemKey = buildItemKey(item);
+            links.appendChild(detailsButton);
+
+            body.appendChild(title);
+            body.appendChild(info);
+            body.appendChild(links);
+
+            card.appendChild(image);
+            card.appendChild(body);
+            elements.productsGrid.appendChild(card);
+          });
+        }
+
+        function renderSummary() {
+          const rows = [];
+          const uniqueIds = new Set(
+            state.dataset
+              .map(function (item) {
+                return item.itemId;
+              })
+              .filter(Boolean),
+          ).size;
+
+          const pricedItems = state.dataset.filter(function (item) {
+            return item.price !== null;
+          }).length;
+
+          rows.push(
+            summaryRow("Lista neve / oldal címe", state.meta.pageTitle || "-"),
+          );
+          rows.push(
+            summaryRow("Betöltés ideje", state.meta.generatedAt || "-"),
+          );
+          rows.push(
+            summaryRow("Összes termék", formatInteger(state.dataset.length)),
+          );
+          rows.push(
+            summaryRow("Áras termékek száma", formatInteger(pricedItems)),
+          );
+          rows.push(summaryRow("Egyedi TID-k száma", formatInteger(uniqueIds)));
+          rows.push(
+            summaryRow(
+              "Aktív affiliate partner",
+              state.settings.affiliateUsername || "nincs megadva",
+            ),
+          );
+          rows.push(
+            summaryRow("Találati forrás típusa", state.meta.sourceLabel || "-"),
+          );
+          rows.push(
+            summaryRow(
+              "Forrásoldal",
+              state.meta.sourcePageName || "EastMallBuy listaoldal",
+            ),
+          );
+
+          elements.summaryGrid.innerHTML = rows.join("");
+        }
+
+        function renderDebug() {
+          elements.debugList.innerHTML = "";
+          const debug = state.meta.debug;
+
+          if (!debug) {
+            elements.debugList.innerHTML =
+              "<li>Nincs importált technikai adat.</li>";
+            return;
+          }
+
+          const lines = [];
+          lines.push(`Adatforrás kódja: ${state.meta.source || "-"}`);
+          lines.push(
+            `Elsődleges forrás: ${readPath(debug, ["finalDecision", "primarySource"]) || "-"}`,
+          );
+          lines.push(
+            `Scroll ciklusok: ${readPath(debug, ["scroll", "cycles"]) || 0}`,
+          );
+          lines.push(
+            `Kezdeti goods_list elemek: ${readPath(debug, ["page", "initialItemNodes"]) || 0}`,
+          );
+          lines.push(
+            `Végső goods_list elemek: ${readPath(debug, ["page", "finalItemNodes"]) || 0}`,
+          );
+          lines.push(
+            `Hálózati termékek: ${readPath(debug, ["networkSummary", "uniqueNetworkProducts"]) || 0}`,
+          );
+          lines.push(
+            `Végső termékek: ${readPath(debug, ["extraction", "finalExtracted"]) || 0}`,
+          );
+
+          if (Array.isArray(readPath(debug, ["notes"]))) {
+            readPath(debug, ["notes"])
+              .slice(-8)
+              .forEach(function (note) {
+                lines.push(note);
+              });
+          }
+
+          lines.forEach(function (line) {
+            const li = document.createElement("li");
+            li.textContent = line;
+            elements.debugList.appendChild(li);
+          });
+        }
+
+        function exportFilteredDataset() {
+          if (!state.filtered.length) return;
+
+          const payload = {
+            ok: true,
+            source: state.meta.source || "network_getitemlist",
+            sourceLabel:
+              state.meta.sourceLabel || explainSource(state.meta.source),
+            itemCount: state.filtered.length,
+            generatedAt: new Date().toISOString(),
+            affiliate: {
+              username: state.settings.affiliateUsername || "",
+            },
+            page: {
+              href: state.meta.pageHref,
+              title: state.meta.pageTitle,
+              sellerName: state.meta.sourcePageName,
+            },
+            stats: state.meta.stats,
+            items: state.filtered.map(function (item) {
+              return createExportItem(item);
+            }),
+          };
+
+          downloadJson(
+            `eastmallbuy-products-filtered-${Date.now()}.json`,
+            payload,
+          );
+        }
+
+        function createExportItem(item) {
+          const base =
+            item.__json && typeof item.__json === "object"
+              ? structuredClone(item.__json)
+              : { ...item };
+
+          base.itemId = item.itemId || "";
+          base.title = item.title || "";
+          base.price = item.price;
+          base.priceLabel = item.priceLabel || "";
+          base.image = item.image || "";
+          base.url = item.url || "";
+          base.affiliateUrl = resolveItemAffiliateUrl(item);
+          base.sellerName = item.sourcePageName || "EastMallBuy listaoldal";
+          base.source = item.source || "";
+          base.raw = item.raw || {};
+          return base;
+        }
+
+        function resetFilters() {
+          elements.searchInput.value = "";
+          elements.sourceFilter.value = "";
+          elements.minPriceInput.value = "";
+          elements.maxPriceInput.value = "";
+          elements.sortSelect.value = "default";
+          render();
+        }
+
+        function refreshStorageButtonState() {
+          const hasStorage = !!localStorage.getItem(
+            "eastmallbuy_last_products",
+          );
+          elements.loadStorageBtn.disabled = !hasStorage;
+        }
+
+        function showInfo(message) {
+          elements.datasetNotice.textContent = message;
+          elements.datasetNotice.classList.add("is-visible");
+        }
+
+        function showError(message) {
+          if (!message) {
+            elements.errorNotice.textContent = "";
+            elements.errorNotice.classList.remove("is-visible");
+            return;
+          }
+
+          elements.errorNotice.textContent = message;
+          elements.errorNotice.classList.add("is-visible");
+        }
+
+        function createInfoRow(label, value) {
+          const row = document.createElement("div");
+          row.className = "info-row";
+
+          const title = document.createElement("div");
+          title.className = "info-row__label";
+          title.textContent = label;
+
+          const content = document.createElement("div");
+          content.className = "info-row__value";
+          content.textContent = value;
+
+          row.appendChild(title);
+          row.appendChild(content);
+          return row;
+        }
+
+        function createLinkButton(label, href, className) {
+          if (!href) return null;
+
+          const link = document.createElement("a");
+          link.href = href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = className;
+          link.textContent = label;
+          return link;
+        }
+
+        function summaryRow(label, value) {
+          return `
+            <div class="summary-row">
+              <small>${escapeHtml(label)}</small>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `;
+        }
+
+        function handleProductGridClick(event) {
+          const button = event.target.closest("[data-action='view-item-json']");
+          if (!button) return;
+
+          const itemKey = button.dataset.itemKey || "";
+          const item = state.filtered.find(function (entry) {
+            return buildItemKey(entry) === itemKey;
+          });
+
+          if (!item) return;
+          openItemJsonModal(item);
+        }
+
+        function openItemJsonModal(item) {
+          elements.itemJsonTitle.textContent = item.title || "Termék adatai";
+          elements.itemJsonOutput.textContent = JSON.stringify(
+            createExportItem(item),
+            null,
+            2,
+          );
+          elements.itemJsonModal.classList.add("is-visible");
+          elements.itemJsonModal.setAttribute("aria-hidden", "false");
+        }
+
+        function closeItemJsonModal() {
+          elements.itemJsonModal.classList.remove("is-visible");
+          elements.itemJsonModal.setAttribute("aria-hidden", "true");
+          elements.itemJsonOutput.textContent = "";
+        }
+
+        function resolveDatasetSourcePageName(root, items) {
+          const itemSample =
+            Array.isArray(items) && items.length ? items[0] : null;
+          return (
+            readPath(root, ["page", "sellerName"]) ||
+            readPath(root, ["page", "shopName"]) ||
+            readPath(root, ["page", "shop_name"]) ||
+            (itemSample && itemSample.sourcePageName) ||
+            extractShopNameFromUrl(readPath(root, ["page", "href"]) || "") ||
+            extractShopNameFromTitle(readPath(root, ["page", "title"]) || "") ||
+            "EastMallBuy listaoldal"
+          );
+        }
+
+        function resolveItemSourcePageName(item, root) {
+          return (
+            cleanText(item && item.sellerName ? item.sellerName : "") ||
+            readPath(item, ["raw", "seller_name"]) ||
+            readPath(item, ["raw", "shop_name"]) ||
+            readPath(item, ["raw", "seller"]) ||
+            readPath(root, ["page", "sellerName"]) ||
+            readPath(root, ["page", "shopName"]) ||
+            extractShopNameFromUrl(readPath(root, ["page", "href"]) || "") ||
+            extractShopNameFromTitle(readPath(root, ["page", "title"]) || "") ||
+            "EastMallBuy listaoldal"
+          );
+        }
+
+        function resolveWeidianUrl(item) {
+          const candidates = [
+            readPath(item, ["raw", "detail_url"]),
+            readPath(item, ["raw", "url"]),
+            readPath(item, ["raw", "item_url"]),
+            readPath(item, ["raw", "pc_url"]),
+            readPath(item, ["raw", "h5_url"]),
+            readPath(item, ["raw", "jump_url"]),
+            item && item.url,
+          ];
+
+          for (const value of candidates) {
+            const normalized = cleanText(value);
+            if (normalized && /weidian\.com/i.test(normalized)) {
+              return normalized;
+            }
+          }
+
+          return "";
+        }
+
+        function resolveItemAffiliateUrl(item) {
+          const built = buildAffiliateItemUrl(
+            item.itemId,
+            state.settings.affiliateUsername,
+          );
+          return built || cleanText(item.affiliateUrl || item.url || "");
+        }
+
+        function normalizeAffiliateUsername(value) {
+          return cleanText(value || "").replace(/\s+/g, "");
+        }
+
+        function buildAffiliateItemUrl(itemId, affiliateUsername) {
+          const tid = cleanText(itemId || "");
+          if (!tid) {
+            return "";
+          }
+
+          const inviter = normalizeAffiliateUsername(affiliateUsername);
+          const params = new URLSearchParams();
+          params.set("tid", tid);
+          if (inviter) {
+            params.set("inviter", inviter);
+          }
+
+          return `https://eastmallbuy.com/index/item/index.html?${params.toString()}`;
+        }
+
+        function buildAffiliateRegisterUrl(affiliateUsername) {
+          const inviter = normalizeAffiliateUsername(affiliateUsername);
+          if (!inviter) {
+            return "https://www.eastmallbuy.com/web/#/register";
+          }
+          return `https://www.eastmallbuy.com/web/#/register?inviter=${encodeURIComponent(inviter)}`;
+        }
+
+        function extractShopNameFromUrl(url) {
+          const value = cleanText(url);
+          if (!value) return "";
+
+          try {
+            const parsed = new URL(value, window.location.href);
+            const params = parsed.searchParams;
+            return (
+              params.get("shopName") ||
+              params.get("shop_name") ||
+              params.get("sellerName") ||
+              params.get("seller_name") ||
+              params.get("merchant") ||
+              params.get("shop") ||
+              ""
+            );
+          } catch (error) {
+            return "";
+          }
+        }
+
+        function extractShopNameFromTitle(title) {
+          const value = cleanText(title);
+          if (!value) return "";
+
+          const parts = value.split(/[-|·]/).map(function (part) {
+            return cleanText(part);
+          });
+
+          const candidate = parts.find(function (part) {
+            return part && !/eastmallbuy/i.test(part) && part.length >= 3;
+          });
+
+          return candidate || "";
+        }
+
+        function formatUsdPrice(item) {
+          if (!item || item.price === null) {
+            return "";
+          }
+          return `${formatUsdNumber(item.price)} USD`;
+        }
+
+        function formatApproxHuf(usd) {
+          if (
+            usd === null ||
+            usd === undefined ||
+            !Number.isFinite(Number(usd))
+          ) {
+            return "";
+          }
+          const huf = Math.round(Number(usd) * HUF_EXCHANGE_RATE);
+          return `kb. ${formatInteger(huf)} Ft`;
+        }
+
+        function formatPriceDisplay(item) {
+          if (!item || item.price === null) {
+            return "Ár: nincs adat";
+          }
+
+          const usd = formatUsdPrice(item);
+          const approxHuf = formatApproxHuf(item.price);
+          return `Ár: ${usd} · ${approxHuf}`;
+        }
+
+        function explainSource(source) {
+          return SOURCE_LABELS[source] || "A forrás típusa nem ismert.";
+        }
+
+        function inferDatasetSource(items) {
+          const sources = Array.from(
+            new Set(
+              (items || [])
+                .map(function (item) {
+                  return item.source;
+                })
+                .filter(Boolean),
+            ),
+          );
+
+          if (sources.includes("initial_dom_plus_network_plus_final_dom")) {
+            return "initial_dom_plus_network_plus_final_dom";
+          }
+          if (sources.includes("network_getitemlist_plus_dom")) {
+            return "network_getitemlist_plus_dom";
+          }
+          if (sources.includes("network_getitemlist")) {
+            return "network_getitemlist";
+          }
+          if (sources.includes("goods_list_dom_only")) {
+            return "goods_list_dom_only";
+          }
+          if (sources.includes("goods_list_dom")) {
+            return "goods_list_dom";
+          }
+
+          return "none";
+        }
+
+        function createEmptyMeta() {
+          return {
+            source: "",
+            sourceLabel: "",
+            generatedAt: "",
+            pageHref: "",
+            pageTitle: "",
+            sourcePageName: "EastMallBuy listaoldal",
+            affiliateUsername: DEFAULT_AFFILIATE_USERNAME,
+            loadedFromStorage: false,
+            stats: buildStats([], {}, false),
+            debug: null,
+          };
+        }
+
+        function parsePrice(value) {
+          if (value === null || value === undefined || value === "") {
+            return null;
+          }
+
+          if (typeof value === "number" && Number.isFinite(value)) {
+            return value;
+          }
+
+          const match = String(value).match(/(\d+(?:[.,]\d{1,2})?)/);
+          if (!match) {
+            return null;
+          }
+
+          const parsed = Number(match[1].replace(/,/g, "."));
+          return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function parseNumberInput(value) {
+          if (!value) return null;
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function numberOrFallback(value, fallback) {
+          return typeof value === "number" && Number.isFinite(value)
+            ? value
+            : fallback;
+        }
+
+        function compareNullableNumber(a, b) {
+          if (a === null && b === null) return 0;
+          if (a === null) return 1;
+          if (b === null) return -1;
+          return a - b;
+        }
+
+        function pickBetter(a, b) {
+          const score = function (item) {
+            let total = 0;
+            if (item.itemId) total += 4;
+            if (item.url) total += 3;
+            if (item.image) total += 2;
+            if (item.price !== null || item.priceLabel) total += 2;
+            if (item.sourcePageName) total += 1;
+            if ((item.title || "").length >= 8) total += 1;
+            return total;
+          };
+
+          return score(b) > score(a)
+            ? {
+                ...a,
+                ...b,
+                raw: { ...(a.raw || {}), ...(b.raw || {}) },
+                __json: b.__json || a.__json,
+              }
+            : {
+                ...b,
+                ...a,
+                raw: { ...(b.raw || {}), ...(a.raw || {}) },
+                __json: a.__json || b.__json,
+              };
+        }
+
+        function cleanText(value) {
+          return String(value || "")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function firstNonEmptyString(values) {
+          for (const value of values || []) {
+            if (typeof value === "string" && value.trim()) {
+              return value.trim();
+            }
+            if (typeof value === "number" && Number.isFinite(value)) {
+              return String(value);
+            }
+          }
+          return "";
+        }
+
+        function readPath(root, path) {
+          let current = root;
+          for (const key of path) {
+            if (!current || typeof current !== "object" || !(key in current)) {
+              return undefined;
+            }
+            current = current[key];
+          }
+          return current;
+        }
+
+        function formatUsdNumber(value) {
+          return new Intl.NumberFormat("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(Number(value));
+        }
+
+        function formatInteger(value) {
+          return new Intl.NumberFormat("hu-HU").format(Number(value || 0));
+        }
+
+        function escapeHtml(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function downloadJson(filename, payload) {
+          const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: "application/json;charset=utf-8",
+          });
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+
+          setTimeout(function () {
+            URL.revokeObjectURL(objectUrl);
+          }, 1200);
+        }
+      })();
+    </script>
+  </body>
+</html>
