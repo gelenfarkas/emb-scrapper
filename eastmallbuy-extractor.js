@@ -48,13 +48,13 @@
     maxScrollCycles: 30, // Legfeljebb ennyi scroll ciklust fusson le egy gyűjtés során.
     stopAfterStableCycles: 3, // Ennyi egymást követő növekedés nélküli kör után álljon le.
     stopWhenReachedMaxItems: true, // Álljon le, ha már összegyűlt a maxItems értéknyi egyedi termék.
-    stopWhenReachedRealTotalResults: true, // Álljon le, ha a hálózati feed szerint elérte a valós teljes termékszámot.
+    stopWhenReachedRealTotalResults: false, // Alapból ne álljon le csak azért, mert a hálózati feed szerint elérte a valós teljes termékszámot.
 
     // --------------------------------------------
     // Export és mentés
     // --------------------------------------------
     saveToLocalStorage: true, // Mentse el a végső eredményt és a debug adatokat localStorage-ba is.
-    downloadDebug: true, // Töltse le külön debug JSON fájlba is a diagnosztikai adatokat.
+    downloadDebug: false, // Alapból ne töltsön le külön debug JSON fájlt, csak a termékexportot.
     exportProductsFilenamePrefix: "eastmallbuy-products", // A termékexport fájlnév-eleje.
     exportDebugFilenamePrefix: "eastmallbuy-debug", // A debug export fájlnév-eleje.
 
