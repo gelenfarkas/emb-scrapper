@@ -26,7 +26,7 @@
     // Általános működés
     // --------------------------------------------
     debug: true, // Írjon-e részletes állapotüzeneteket a konzolba futás közben.
-    maxItems: 300, // Legfeljebb ennyi egyedi terméket tartson meg a végső listában.
+    maxItems: 180, // Legfeljebb ennyi egyedi terméket tartson meg a végső listában.
     // Ajánlott érték kisebb bolthoz: 100-300
     // Ajánlott érték nagyobb bolthoz: 500+
 
@@ -34,7 +34,7 @@
     // Affiliate linkek
     // --------------------------------------------
     affiliateUsername: "gelenfarkas", // Az EastMallBuy affiliate / inviter felhasználónév, amit a termék- és regisztrációs linkekbe be kell tenni.
-    defaultSearchLang: "en", // Az affiliate terméklinkben használt keresési nyelv.
+    defaultSearchLang: "en", // Korábbi kompatibilitási beállítás; a rövid affiliate linkhez most nem kerül külön be a nyelv.
 
     // --------------------------------------------
     // Gyűjtési stratégia
@@ -48,13 +48,13 @@
     maxScrollCycles: 30, // Legfeljebb ennyi scroll ciklust fusson le egy gyűjtés során.
     stopAfterStableCycles: 3, // Ennyi egymást követő növekedés nélküli kör után álljon le.
     stopWhenReachedMaxItems: true, // Álljon le, ha már összegyűlt a maxItems értéknyi egyedi termék.
-    stopWhenReachedRealTotalResults: false, // Álljon le, ha a hálózati feed szerint elérte a valós teljes termékszámot.
+    stopWhenReachedRealTotalResults: true, // Álljon le, ha a hálózati feed szerint elérte a valós teljes termékszámot.
 
     // --------------------------------------------
     // Export és mentés
     // --------------------------------------------
     saveToLocalStorage: true, // Mentse el a végső eredményt és a debug adatokat localStorage-ba is.
-    downloadDebug: false, // Töltse le külön debug JSON fájlba is a diagnosztikai adatokat.
+    downloadDebug: true, // Töltse le külön debug JSON fájlba is a diagnosztikai adatokat.
     exportProductsFilenamePrefix: "eastmallbuy-products", // A termékexport fájlnév-eleje.
     exportDebugFilenamePrefix: "eastmallbuy-debug", // A debug export fájlnév-eleje.
 
@@ -197,6 +197,10 @@
         this.state.debug.page.href = location.href;
         this.state.debug.page.title = document.title || "";
         this.state.pageSellerName = resolveSellerNameFromPage();
+        this.state.pageTp = normalizeTpValue(
+          extractTpValueFromUrl(location.href),
+          "micro",
+        );
 
         if (/eastmallbuy\.com/i.test(location.hostname || location.href)) {
           this.log("EastMallBuy oldal észlelve.");
@@ -269,22 +273,39 @@
           this.state.pageSellerName,
         );
 
-        const product = finalizeProductShape({
-          itemId: itemId,
-          title: rawTitle,
-          price: parsePriceValue(rawPriceText),
-          priceLabel: rawPriceText,
-          image: image,
-          url: url,
-          sellerName: sellerName,
-          source: "goods_list_dom",
-          raw: {
-            href: rawHref,
+        const product = finalizeProductShape(
+          {
+            itemId: itemId,
+            tp: extractTpValueFromItem(
+              {
+                url: url,
+                raw: {
+                  href: rawHref,
+                },
+              },
+              {
+                pageUrl: location.href,
+                pageTp: this.state.pageTp,
+              },
+            ),
             title: rawTitle,
-            priceText: rawPriceText,
-            imageSrc: rawImageSrc,
+            price: parsePriceValue(rawPriceText),
+            priceLabel: rawPriceText,
+            image: image,
+            url: url,
+            sellerName: sellerName,
+            source: "goods_list_dom",
+            raw: {
+              href: rawHref,
+              title: rawTitle,
+              priceText: rawPriceText,
+              imageSrc: rawImageSrc,
+            },
           },
-        });
+          {
+            pageTp: this.state.pageTp,
+          },
+        );
 
         const verdict = validateProduct(product);
         if (!verdict.ok) {
@@ -566,11 +587,11 @@
         let added = 0;
 
         for (const raw of items) {
-          const product = normalizeNetworkProduct(
-            raw,
-            url,
-            this.state.pageSellerName,
-          );
+          const product = normalizeNetworkProduct(raw, url, {
+            pageSellerName: this.state.pageSellerName,
+            pageTp: this.state.pageTp,
+            pageUrl: location.href,
+          });
           if (!product) {
             continue;
           }
@@ -625,7 +646,9 @@
           networkList,
           finalDomList,
         ])
-          .map(finalizeProductShape)
+          .map(function (item) {
+            return finalizeProductShape(item, { pageTp: "micro" });
+          })
           .slice(0, safeMaxItems());
 
         const missingInitialProducts = collectMissingInitialProducts(
@@ -685,7 +708,13 @@
 
       finish(source, items, stoppedReason) {
         const limited = dedupeProducts(items)
-          .map(finalizeProductShape)
+          .map(
+            function (item) {
+              return finalizeProductShape(item, {
+                pageTp: this.state.pageTp || "micro",
+              });
+            }.bind(this),
+          )
           .slice(0, safeMaxItems());
         const uniqueItemIds = new Set(
           limited
@@ -700,6 +729,7 @@
         const visibleNodes = this.collectVisibleGoodsItems().length;
         const durationMs = Date.now() - this.state.startedAt;
         const sourceLabel = explainSource(source);
+        const tpDistribution = buildTpDistribution(limited);
 
         this.state.debug.extraction.finalExtracted = limited.length;
         this.state.debug.page.finalItemNodes = visibleNodes;
@@ -724,6 +754,7 @@
             href: location.href,
             title: document.title || "",
             sellerName: this.state.pageSellerName || "",
+            tp: this.state.pageTp || "micro",
           },
           stats: {
             requestedMaxItems: safeMaxItems(),
@@ -744,6 +775,7 @@
             getItemlistResponses:
               this.state.debug.networkSummary.getItemlistResponses,
             primarySource: this.state.debug.finalDecision.primarySource,
+            dominantTp: tpDistribution.dominantTp,
           },
           items: limited,
           debug: this.state.debug,
@@ -838,6 +870,7 @@
       originalXHR: null,
       startedAt: 0,
       pageSellerName: "",
+      pageTp: "micro",
       initialDomProducts: [],
       finalDomProducts: [],
       networkProducts: new Map(),
@@ -916,84 +949,7 @@
     };
   }
 
-  function extractGetItemlistSummary(root) {
-    const itemArray = firstArrayByPaths(root, [
-      ["data", "items", "item"],
-      ["items", "item"],
-      ["data", "item"],
-      ["item"],
-    ]);
-
-    return {
-      items: Array.isArray(itemArray) ? itemArray : [],
-      realTotalResults: firstNumberByPaths(root, [
-        ["real_total_results"],
-        ["data", "real_total_results"],
-        ["data", "items", "real_total_results"],
-      ]),
-      totalResults: firstNumberByPaths(root, [
-        ["total_results"],
-        ["data", "total_results"],
-        ["data", "items", "total_results"],
-      ]),
-      page: firstNumberByPaths(root, [
-        ["page"],
-        ["data", "page"],
-        ["data", "items", "page"],
-      ]),
-      pageCount: firstNumberByPaths(root, [
-        ["pagecount"],
-        ["page_count"],
-        ["data", "pagecount"],
-        ["data", "page_count"],
-      ]),
-    };
-  }
-
-  function firstArrayByPaths(root, paths) {
-    for (const path of paths) {
-      const value = readPath(root, path);
-      if (Array.isArray(value)) {
-        return value;
-      }
-    }
-    return null;
-  }
-
-  function firstNumberByPaths(root, paths) {
-    for (const path of paths) {
-      const value = readPath(root, path);
-      const number = parseInteger(value);
-      if (number !== null) {
-        return number;
-      }
-    }
-    return null;
-  }
-
-  function readPath(root, path) {
-    let current = root;
-    for (const key of path) {
-      if (!current || typeof current !== "object" || !(key in current)) {
-        return undefined;
-      }
-      current = current[key];
-    }
-    return current;
-  }
-
-  function parseInteger(value) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return Math.trunc(value);
-    }
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
-    }
-    return null;
-  }
-
-  function normalizeNetworkProduct(raw, requestUrl, pageSellerName) {
+  function normalizeNetworkProduct(raw, requestUrl, pageMeta) {
     if (!raw || typeof raw !== "object") {
       return null;
     }
@@ -1069,36 +1025,65 @@
         raw.mall_name,
         raw.shopName,
       ],
-      pageSellerName,
+      pageMeta.pageSellerName,
     );
 
-    const product = finalizeProductShape({
-      itemId: itemId,
-      title: title,
-      price: parsePriceValue(priceLabel),
-      priceLabel: priceLabel,
-      image: image,
-      url: url,
-      sellerName: sellerName,
-      source: "network_getitemlist",
-      raw: {
-        requestUrl: requestUrl || "",
-        item_id: raw.item_id || "",
-        num_iid: raw.num_iid || "",
-        tid: raw.tid || "",
-        price: raw.price || "",
-        pic_url: raw.pic_url || "",
-        detail_url: raw.detail_url || "",
-        seller_name: raw.seller_name || "",
-        shop_name: raw.shop_name || "",
-        seller: raw.seller || "",
+    const product = finalizeProductShape(
+      {
+        itemId: itemId,
+        tp: extractTpValueFromItem(
+          {
+            url: url,
+            raw: {
+              detail_url: raw.detail_url || "",
+              href: raw.href || "",
+              url: raw.url || "",
+              item_url: raw.item_url || "",
+              pc_url: raw.pc_url || "",
+              h5_url: raw.h5_url || "",
+              jump_url: raw.jump_url || "",
+            },
+          },
+          {
+            pageTp: pageMeta.pageTp,
+            pageUrl: pageMeta.pageUrl,
+          },
+        ),
+        title: title,
+        price: parsePriceValue(priceLabel),
+        priceLabel: priceLabel,
+        image: image,
+        url: url,
+        sellerName: sellerName,
+        source: "network_getitemlist",
+        raw: {
+          requestUrl: requestUrl || "",
+          item_id: raw.item_id || "",
+          num_iid: raw.num_iid || "",
+          tid: raw.tid || "",
+          price: raw.price || "",
+          pic_url: raw.pic_url || "",
+          detail_url: raw.detail_url || "",
+          seller_name: raw.seller_name || "",
+          shop_name: raw.shop_name || "",
+          seller: raw.seller || "",
+          href: raw.href || "",
+          url: raw.url || "",
+          item_url: raw.item_url || "",
+          pc_url: raw.pc_url || "",
+          h5_url: raw.h5_url || "",
+          jump_url: raw.jump_url || "",
+        },
       },
-    });
+      {
+        pageTp: pageMeta.pageTp,
+      },
+    );
 
     return validateProduct(product).ok ? product : null;
   }
 
-  function finalizeProductShape(product) {
+  function finalizeProductShape(product, pageMeta) {
     const normalized = { ...(product || {}) };
     normalized.itemId = cleanText(normalized.itemId || "");
     normalized.title = cleanText(normalized.title || "");
@@ -1112,20 +1097,150 @@
       normalized.raw && typeof normalized.raw === "object"
         ? normalized.raw
         : {};
+    normalized.tp = normalizeTpValue(
+      normalized.tp ||
+        extractTpValueFromItem(normalized, {
+          pageTp: pageMeta && pageMeta.pageTp ? pageMeta.pageTp : "micro",
+          pageUrl: location.href,
+        }),
+      "micro",
+    );
     normalized.affiliateUrl = buildAffiliateItemUrl(
       normalized.itemId || extractTid(normalized.url || ""),
       CONFIG.affiliateUsername,
-      CONFIG.defaultSearchLang,
+      normalized.tp,
     );
     return normalized;
   }
 
-  function buildProductKey(product) {
-    return (
-      product.itemId ||
-      product.url ||
-      [product.title || "", product.image || ""].join("|")
-    );
+  function getQueryParam(url, key) {
+    const value = String(url || "").trim();
+    if (!value || !key) {
+      return "";
+    }
+
+    try {
+      const parsed = new URL(value, location.href);
+      return cleanText(parsed.searchParams.get(key) || "");
+    } catch (error) {
+      const match = value.match(
+        new RegExp(`[?&]${escapeRegExp(key)}=([^&#]+)`, "i"),
+      );
+      return match ? cleanText(decodeURIComponent(match[1])) : "";
+    }
+  }
+
+  function extractTpValueFromUrl(url) {
+    return normalizeTpValue(getQueryParam(url, "tp"));
+  }
+
+  function extractTpValueFromItem(item, pageMeta) {
+    const sources = [
+      item && item.tp,
+      item && item.url,
+      item && item.href,
+      item && item.detail_url,
+      item && item.raw && item.raw.href,
+      item && item.raw && item.raw.detail_url,
+      item && item.raw && item.raw.url,
+      item && item.raw && item.raw.item_url,
+      item && item.raw && item.raw.pc_url,
+      item && item.raw && item.raw.h5_url,
+      item && item.raw && item.raw.jump_url,
+      pageMeta && pageMeta.pageUrl,
+    ];
+
+    for (const source of sources) {
+      const tp = extractTpValueFromUrl(source);
+      if (tp) {
+        return tp;
+      }
+    }
+
+    return normalizeTpValue(pageMeta && pageMeta.pageTp, "micro");
+  }
+
+  function normalizeTpValue(value, fallback) {
+    const normalized = cleanText(value || "");
+    return normalized || cleanText(fallback || "");
+  }
+
+  function buildAffiliateItemUrl(itemId, affiliateUsername, tp) {
+    const tid = cleanText(itemId || "");
+    if (!tid) {
+      return "";
+    }
+
+    const params = new URLSearchParams();
+    params.set("tp", normalizeTpValue(tp, "micro"));
+    params.set("tid", tid);
+
+    const inviter = normalizeAffiliateUsername(affiliateUsername);
+    if (inviter) {
+      params.set("inviter", inviter);
+    }
+
+    return `https://eastmallbuy.com/index/item/index.html?${params.toString()}`;
+  }
+
+  function buildTpDistribution(items) {
+    const counts = new Map();
+
+    for (const item of items || []) {
+      const tp = normalizeTpValue(item && item.tp, "micro");
+      counts.set(tp, (counts.get(tp) || 0) + 1);
+    }
+
+    let dominantTp = "micro";
+    let highest = 0;
+    counts.forEach(function (count, tp) {
+      if (count > highest) {
+        dominantTp = tp;
+        highest = count;
+      }
+    });
+
+    return {
+      dominantTp: dominantTp,
+      counts: counts,
+    };
+  }
+
+  function resolveSellerNameFromCandidates(candidates, fallback) {
+    const value = firstNonEmptyString(candidates || []);
+    return value || cleanText(fallback || "") || "EastMallBuy shop";
+  }
+
+  function resolveSellerNameFromPage() {
+    const candidates = [];
+
+    try {
+      const parsed = new URL(location.href);
+      candidates.push(
+        parsed.searchParams.get("shopName"),
+        parsed.searchParams.get("shop_name"),
+        parsed.searchParams.get("sellerName"),
+        parsed.searchParams.get("seller_name"),
+        parsed.searchParams.get("merchant"),
+        parsed.searchParams.get("shop"),
+      );
+    } catch (error) {
+      // nincs teendő
+    }
+
+    const titleParts = cleanText(document.title || "")
+      .split(/[-|·]/)
+      .map(function (part) {
+        return cleanText(part);
+      });
+
+    for (const part of titleParts) {
+      if (part && !/eastmallbuy/i.test(part) && part.length >= 3) {
+        candidates.push(part);
+      }
+    }
+
+    return firstNonEmptyString(candidates) || "EastMallBuy shop";
   }
 
   function validateProduct(product) {
@@ -1170,6 +1285,14 @@
     return Array.from(map.values());
   }
 
+  function buildProductKey(product) {
+    return (
+      product.itemId ||
+      product.url ||
+      [product.title || "", product.image || ""].join("|")
+    );
+  }
+
   function mergeProductsInOrder(groups) {
     const map = new Map();
 
@@ -1211,6 +1334,7 @@
     const score = function (item) {
       let total = 0;
       if (item.itemId) total += 4;
+      if (item.tp) total += 3;
       if (item.url) total += 3;
       if (item.image) total += 2;
       if (item.price !== null || item.priceLabel) total += 2;
@@ -1224,7 +1348,7 @@
         ? { ...a, ...b, raw: { ...(a.raw || {}), ...(b.raw || {}) } }
         : { ...b, ...a, raw: { ...(b.raw || {}), ...(a.raw || {}) } };
 
-    return finalizeProductShape(merged);
+    return merged;
   }
 
   function normalizeUrl(url) {
@@ -1258,62 +1382,6 @@
 
   function normalizeSearchLang(value) {
     return cleanText(value || "") || "en";
-  }
-
-  function buildAffiliateItemUrl(itemId, affiliateUsername, searchLang) {
-    const tid = cleanText(itemId || "");
-    if (!tid) {
-      return "";
-    }
-
-    const params = new URLSearchParams();
-    params.set("tp", "micro");
-    params.set("tid", tid);
-    params.set("searchlang", normalizeSearchLang(searchLang));
-
-    const inviter = normalizeAffiliateUsername(affiliateUsername);
-    if (inviter) {
-      params.set("inviter", inviter);
-    }
-
-    return `https://www.eastmallbuy.com/web/#/item/index?${params.toString()}`;
-  }
-
-  function resolveSellerNameFromCandidates(candidates, fallback) {
-    const value = firstNonEmptyString(candidates || []);
-    return value || cleanText(fallback || "") || "EastMallBuy shop";
-  }
-
-  function resolveSellerNameFromPage() {
-    const candidates = [];
-
-    try {
-      const parsed = new URL(location.href);
-      candidates.push(
-        parsed.searchParams.get("shopName"),
-        parsed.searchParams.get("shop_name"),
-        parsed.searchParams.get("sellerName"),
-        parsed.searchParams.get("seller_name"),
-        parsed.searchParams.get("merchant"),
-        parsed.searchParams.get("shop"),
-      );
-    } catch (error) {
-      // nincs teendő
-    }
-
-    const titleParts = cleanText(document.title || "")
-      .split(/[-|·]/)
-      .map(function (part) {
-        return cleanText(part);
-      });
-
-    for (const part of titleParts) {
-      if (part && !/eastmallbuy/i.test(part) && part.length >= 3) {
-        candidates.push(part);
-      }
-    }
-
-    return firstNonEmptyString(candidates) || "EastMallBuy shop";
   }
 
   function parsePriceValue(value) {
@@ -1368,6 +1436,7 @@
   function compactProduct(product) {
     return {
       itemId: product.itemId,
+      tp: product.tp,
       title: product.title,
       priceLabel: product.priceLabel,
       image: product.image,
@@ -1466,6 +1535,10 @@
     return new Promise(function (resolve) {
       setTimeout(resolve, ms);
     });
+  }
+
+  function escapeRegExp(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   if (

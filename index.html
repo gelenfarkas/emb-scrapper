@@ -1103,6 +1103,10 @@
             ),
             image: firstNonEmptyString([item && item.image]),
             url: cleanText(url),
+            tp: extractTpValueFromItem(item, {
+              pageHref: readPath(root, ["page", "href"]) || "",
+              pageTp: readPath(root, ["page", "tp"]) || "",
+            }),
             affiliateUrl: cleanText(
               item && item.affiliateUrl ? item.affiliateUrl : "",
             ),
@@ -1158,6 +1162,7 @@
           const pricedItems = items.filter(function (item) {
             return item.price !== null;
           }).length;
+          const dominantTp = resolveDominantTp(items);
 
           return {
             requestedMaxItems: numberOrFallback(
@@ -1177,6 +1182,7 @@
               (loadedFromStorage ? "localStorage" : "import"),
             primarySource: incomingStats.primarySource || "",
             durationMs: numberOrFallback(incomingStats.durationMs, 0),
+            dominantTp: cleanText(incomingStats.dominantTp || dominantTp || ""),
           };
         }
 
@@ -1241,6 +1247,7 @@
               item.sourcePageName,
               item.priceLabel,
               item.url,
+              item.tp,
               item.affiliateUrl,
               item.weidianUrl,
             ]
@@ -1425,6 +1432,12 @@
           );
           rows.push(
             summaryRow(
+              "Domináns tp érték",
+              state.meta.stats.dominantTp || "micro",
+            ),
+          );
+          rows.push(
+            summaryRow(
               "Forrásoldal",
               state.meta.sourcePageName || "EastMallBuy listaoldal",
             ),
@@ -1463,6 +1476,7 @@
           lines.push(
             `Végső termékek: ${readPath(debug, ["extraction", "finalExtracted"]) || 0}`,
           );
+          lines.push(`Domináns tp: ${state.meta.stats.dominantTp || "micro"}`);
 
           if (Array.isArray(readPath(debug, ["notes"]))) {
             readPath(debug, ["notes"])
@@ -1496,6 +1510,7 @@
               href: state.meta.pageHref,
               title: state.meta.pageTitle,
               sellerName: state.meta.sourcePageName,
+              tp: state.meta.stats.dominantTp || "micro",
             },
             stats: state.meta.stats,
             items: state.filtered.map(function (item) {
@@ -1516,6 +1531,10 @@
               : { ...item };
 
           base.itemId = item.itemId || "";
+          base.tp = extractTpValueFromItem(item, {
+            pageHref: state.meta.pageHref,
+            pageTp: state.meta.stats.dominantTp || "",
+          });
           base.title = item.title || "";
           base.price = item.price;
           base.priceLabel = item.priceLabel || "";
@@ -1681,6 +1700,10 @@
           const built = buildAffiliateItemUrl(
             item.itemId,
             state.settings.affiliateUsername,
+            extractTpValueFromItem(item, {
+              pageHref: state.meta.pageHref,
+              pageTp: state.meta.stats.dominantTp || "",
+            }),
           );
           return built || cleanText(item.affiliateUrl || item.url || "");
         }
@@ -1689,7 +1712,7 @@
           return cleanText(value || "").replace(/\s+/g, "");
         }
 
-        function buildAffiliateItemUrl(itemId, affiliateUsername) {
+        function buildAffiliateItemUrl(itemId, affiliateUsername, tp) {
           const tid = cleanText(itemId || "");
           if (!tid) {
             return "";
@@ -1697,12 +1720,86 @@
 
           const inviter = normalizeAffiliateUsername(affiliateUsername);
           const params = new URLSearchParams();
+          params.set("tp", normalizeTpValue(tp, "micro"));
           params.set("tid", tid);
           if (inviter) {
             params.set("inviter", inviter);
           }
 
           return `https://eastmallbuy.com/index/item/index.html?${params.toString()}`;
+        }
+
+        function getQueryParam(url, key) {
+          const value = cleanText(url);
+          if (!value || !key) {
+            return "";
+          }
+
+          try {
+            const parsed = new URL(value, window.location.href);
+            return cleanText(parsed.searchParams.get(key) || "");
+          } catch (error) {
+            const pattern = new RegExp(
+              `[?&]${escapeRegExp(key)}=([^&#]+)`,
+              "i",
+            );
+            const match = value.match(pattern);
+            return match ? cleanText(decodeURIComponent(match[1])) : "";
+          }
+        }
+
+        function extractTpValueFromUrl(url) {
+          return normalizeTpValue(getQueryParam(url, "tp"));
+        }
+
+        function extractTpValueFromItem(item, meta) {
+          const sources = [
+            item && item.tp,
+            item && item.url,
+            item && readPath(item, ["raw", "href"]),
+            item && readPath(item, ["raw", "detail_url"]),
+            item && readPath(item, ["raw", "url"]),
+            item && readPath(item, ["raw", "item_url"]),
+            item && readPath(item, ["raw", "pc_url"]),
+            item && readPath(item, ["raw", "h5_url"]),
+            item && readPath(item, ["raw", "jump_url"]),
+            meta && meta.pageHref,
+          ];
+
+          for (const source of sources) {
+            const tp = extractTpValueFromUrl(source);
+            if (tp) {
+              return tp;
+            }
+          }
+
+          return normalizeTpValue(meta && meta.pageTp, "micro");
+        }
+
+        function normalizeTpValue(value, fallback) {
+          const normalized = cleanText(value || "");
+          return normalized || cleanText(fallback || "");
+        }
+
+        function resolveDominantTp(items) {
+          const counts = new Map();
+
+          (items || []).forEach(function (item) {
+            const tp = normalizeTpValue(item && item.tp, "micro");
+            counts.set(tp, (counts.get(tp) || 0) + 1);
+          });
+
+          let dominantTp = "micro";
+          let maxCount = 0;
+
+          counts.forEach(function (count, tp) {
+            if (count > maxCount) {
+              dominantTp = tp;
+              maxCount = count;
+            }
+          });
+
+          return dominantTp;
         }
 
         function buildAffiliateRegisterUrl(affiliateUsername) {
@@ -1868,6 +1965,7 @@
           const score = function (item) {
             let total = 0;
             if (item.itemId) total += 4;
+            if (item.tp) total += 3;
             if (item.url) total += 3;
             if (item.image) total += 2;
             if (item.price !== null || item.priceLabel) total += 2;
@@ -1937,6 +2035,10 @@
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;");
+        }
+
+        function escapeRegExp(value) {
+          return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         }
 
         function downloadJson(filename, payload) {
