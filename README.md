@@ -1,138 +1,167 @@
-# 🛍️ EastMallBuy Extractor + Katalógusnézet
+# EastMallBuy Shop Extractor
 
-Egyszerű, böngészőben futtatható eszköz EastMallBuy shopok termékeinek kinyerésére és átlátható megjelenítésére.
-Youtube magyarázó: https://youtu.be/9Tke1cRVX20
+Ez a script EastMallBuy shop listaoldalakról gyűjt ki termékadatokat, majd JSON fájlba exportálja őket. Böngésző konzolból futtatható, telepítés nélkül.
 
-A projekt 2 részből áll:
+## Mire való?
 
-* 📥 **Extractor script** – termékek kinyerése EastMallBuy oldalról
-* 🧾 **Katalógus nézet** – JSON alapú, vizuális terméklista megjelenítés
+Az `eastmallbuy-extractor.js` az EastMallBuy terméklista oldalon:
 
----
+- kigyűjti a látható termékkártyákat a HTML-ből,
+- figyeli a háttérben érkező `getItemlist` API válaszokat,
+- görgetéssel megpróbál további termékeket betölteni,
+- egyesíti és duplikációmentesíti a DOM-ból és hálózatból talált termékeket,
+- affiliate linket generál minden termékhez,
+- JSON fájlt tölt le az eredménnyel,
+- opcionálisan localStorage-ba is elmenti az utolsó eredményt és debug adatokat.
 
-# 🚀 Funkciók
+## Feltételek
 
-## 🔹 Extractor (JavaScript)
+A script akkor működik megfelelően, ha:
 
-* Automatikusan scrolloz és betölti az összes terméket
-* Hálózati (API) és DOM adatokat kombinál
-* Duplikációk kiszűrése
-* JSON export
-* Affiliate link generálás
+- EastMallBuy shop listaoldalon futtatod,
+- az oldalon létezik `ul.goods_list` terméklista,
+- a termékkártyákban elérhető legalább cím, kép, terméklink és `tid` azonosító,
+- a böngésző engedi a DevTools Console-ba illesztett JavaScript futtatását,
+- az oldal betöltődött, mielőtt elindítod a scriptet.
 
-## 🔹 Katalógus nézet (HTML)
+Ajánlott böngésző: Chrome, Edge vagy más Chromium alapú böngésző.
 
-* JSON fájl betöltése
-* Keresés (cím, TID, forrás)
-* Ár szerinti szűrés
-* Rendezés
-* Termékkártyás megjelenítés
-* Affiliate linkek kezelése
-* Export szűrt listára
+## Használat
 
----
+1. Nyisd meg az EastMallBuy shop listaoldalt.
+2. Várd meg, amíg az oldal és az első termékek betöltődnek.
+3. Nyisd meg a böngésző fejlesztői eszközeit.
+   - Windows alatt általában: `F12` vagy `Ctrl + Shift + I`
+4. Menj a `Console` fülre.
+5. Másold be az `eastmallbuy-extractor.js` teljes tartalmát.
+6. Nyomj `Enter`-t.
+7. A script automatikusan elindul.
+8. Várd meg, amíg a scrollozás és gyűjtés befejeződik.
+9. A böngésző letölt egy JSON fájlt az összegyűjtött termékekkel.
 
-# 📦 Fájlok
+Sikeres futás után a konzolban ezt érdemes keresni:
 
-* `eastmallbuy-extractor.js` → extractor script (console-ba)
-* `index.html` → katalógus megjelenítő
-
----
-
-# 🧠 Használat
-
-## 1️⃣ Termékek kinyerése
-
-1. Nyisd meg az EastMallBuy shop oldalát
-2. Várd meg, hogy betöltődjön
-3. Nyisd meg a böngésző DevTools → Console
-4. Illeszd be az `eastmallbuy-extractor.js` teljes tartalmát
-5. Nyomj Entert
-
-👉 A script:
-
-* scrolloz
-* begyűjti a termékeket
-* letölt egy JSON fájlt
-
----
-
-## 2️⃣ Katalógus megjelenítés
-
-1. Nyisd meg az `index.html` fájlt böngészőben
-2. Töltsd be a JSON fájlt
-3. Böngészd / szűrd / exportáld a termékeket
-
----
-
-# 🌐 Publikus használat (GitHub Pages)
-
-Ha GitHubra feltöltöd:
-
-1. Repo → Settings
-2. Pages → Source: `main` branch
-3. Save
-
-👉 Ezután elérhető lesz:
-
-```
-https://USERNAME.github.io/REPO/
+```text
+[EMB] Végső termékszám: ...
+[EMB] Auto-run befejezve: ...
 ```
 
----
+## Kimeneti JSON
 
-# ⚙️ Konfiguráció
+Az exportált JSON főbb mezői:
 
-Az extractor elején található:
+- `ok`: sikerült-e legalább egy terméket kigyűjteni,
+- `source`: milyen forrásból készült a lista,
+- `itemCount`: exportált termékek száma,
+- `affiliate`: affiliate beállítások,
+- `page`: az oldal adatai,
+- `stats`: futási statisztikák,
+- `items`: a terméklista,
+- `debug`: részletes futási és hibakeresési adatok.
+
+Egy termék főbb mezői:
+
+- `itemId`: termékazonosító,
+- `tp`: EastMallBuy típusparaméter,
+- `title`: termék címe,
+- `price`: számmá alakított ár, ha felismerhető,
+- `priceLabel`: eredeti ár szöveg,
+- `image`: termékkép URL,
+- `url`: eredeti termék URL,
+- `affiliateUrl`: generált affiliate terméklink,
+- `sellerName`: bolt vagy eladó neve,
+- `source`: honnan származott az adott termékadat.
+
+## Fontos beállítások
+
+A script elején található `CONFIG` objektumban módosíthatók a fő beállítások.
 
 ```js
 const CONFIG = {
-  maxItems: 180,
+  debug: true,
+  maxItems: 2000,
   affiliateUsername: "gelenfarkas",
-  scrollWaitMs: 1700
-}
+  scrollWaitMs: 1700,
+  maxScrollCycles: 30,
+  stopAfterStableCycles: 3,
+  saveToLocalStorage: true,
+  downloadDebug: false
+};
 ```
 
-### Fontos beállítások:
+Gyakran hasznos beállítások:
 
-* `maxItems` → max termékszám
-* `affiliateUsername` → saját affiliate neved
-* `scrollWaitMs` → lassabb netnél növeld
+- `maxItems`: legfeljebb hány terméket exportáljon.
+- `affiliateUsername`: az affiliate / inviter felhasználónév.
+- `scrollWaitMs`: mennyit várjon két görgetés között.
+- `maxScrollCycles`: maximum hány görgetési ciklust fusson.
+- `stopAfterStableCycles`: hány üres ciklus után álljon le.
+- `downloadDebug`: töltsön-e le külön debug JSON fájlt.
 
----
+## Futás egyedi beállításokkal
 
-# ⚠️ Fontos megjegyzések
+Ha a script már telepítve van az oldalon, konzolból újraindítható más beállításokkal:
 
-* Csak EastMallBuy oldalakon működik
-* Dinamikus betöltés miatt kell a scroll
-* API változás esetén módosítani kellhet
-* Nagy listáknál több idő kell a gyűjtéshez
+```js
+window.EastMallBuyExtractor.run({
+  maxItems: 500,
+  affiliateUsername: "sajat_nev",
+  scrollWaitMs: 2500
+});
+```
 
----
+## Eredmény elérése a konzolból
 
-# 💡 Tippek
+Futás után az adatok elérhetők a böngészőben:
 
-* Kis shop: `maxItems = 100-300`
-* Nagy shop: `maxItems = 500+`
-* Lassú oldal → növeld `scrollWaitMs`
+```js
+window.__EASTMALL_RESULT__
+window.__EASTMALL_PRODUCTS__
+window.__EASTMALL_DEBUG__
+```
 
----
+Ha a localStorage mentés be van kapcsolva:
 
-# 🧾 Licenc
+```js
+localStorage.getItem("eastmallbuy_last_products")
+localStorage.getItem("eastmallbuy_last_debug")
+```
 
-Szabadon használható saját célra.
+## Mikor áll le a gyűjtés?
 
----
+A script leáll, ha valamelyik feltétel teljesül:
 
-# 🙌 Támogatás
+- elérte a `maxItems` limitet,
+- elérte a `maxScrollCycles` ciklusszámot,
+- több egymást követő körben nem talált új terméket,
+- hiba történt,
+- nem található a `ul.goods_list` terméklista.
 
-Ha hasznosnak találtad:
+## Hibaelhárítás
 
-👉 https://gelencseristvan.hu/becsuletkassza/
+Ha nem jön létre export:
 
----
+- ellenőrizd, hogy tényleg EastMallBuy shop listaoldalon vagy-e,
+- várd meg az oldal teljes betöltését, majd futtasd újra,
+- nézd meg, van-e `ul.goods_list` az oldalon,
+- kapcsold be a `debug: true` beállítást,
+- állítsd magasabbra a `scrollWaitMs` értékét lassú oldalnál,
+- próbáld kisebb `maxItems` értékkel.
 
-# 👨‍💻 Készítette
+Ha kevés terméket gyűjt:
 
-Gelencsér István
-Software-Wolf Kft.
+- növeld a `maxScrollCycles` értékét,
+- növeld a `scrollWaitMs` értékét,
+- ellenőrizd, hogy az oldal tényleg betölt-e új termékeket görgetéskor,
+- kapcsold be a debug exportot: `downloadDebug: true`.
+
+Ha nincs affiliate link:
+
+- ellenőrizd, hogy az adott terméknek van-e `tid` azonosítója,
+- ellenőrizd az `affiliateUsername` értékét.
+
+## Megjegyzések
+
+Ez a script böngészőoldali segédeszköz, nem hivatalos EastMallBuy API kliens. Az oldal HTML szerkezete vagy API válaszformátuma idővel változhat, ilyenkor a scripten is módosítani kellhet.
+
+Mindig tartsd be az adott weboldal felhasználási feltételeit, és ne futtasd túl agresszív beállításokkal.

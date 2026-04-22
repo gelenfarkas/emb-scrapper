@@ -465,6 +465,22 @@
         word-break: break-word;
       }
 
+      .category-badge {
+        width: max-content;
+        max-width: 100%;
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(193, 93, 63, 0.12);
+        border: 1px solid rgba(193, 93, 63, 0.2);
+        color: var(--accent);
+        font-size: 0.82rem;
+        font-weight: 800;
+        line-height: 1.2;
+      }
+
       .product-links {
         display: flex;
         flex-wrap: wrap;
@@ -734,6 +750,12 @@
                 </select>
               </div>
               <div class="field">
+                <label for="categoryFilter">Kategória</label>
+                <select id="categoryFilter">
+                  <option value="">Összes kategória</option>
+                </select>
+              </div>
+              <div class="field">
                 <label for="minPriceInput">Minimum ár (USD)</label>
                 <input
                   id="minPriceInput"
@@ -845,7 +867,16 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-    <script>
+    <script type="module">
+      import {
+        detectCategory,
+        expandSearchTerms,
+        findCategoryByKeyword,
+        getCategoryLabel,
+        normalizeCategoryId,
+        normalizeTextForMatch,
+      } from "./assets/js/category-mapping.js";
+
       (() => {
         /*
           Ez csak becsült forintos átszámításhoz van.
@@ -870,6 +901,7 @@
         const state = {
           dataset: [],
           filtered: [],
+          uiCategories: [],
           meta: createEmptyMeta(),
           settings: {
             affiliateUsername: DEFAULT_AFFILIATE_USERNAME,
@@ -887,6 +919,7 @@
           errorNotice: document.getElementById("errorNotice"),
           searchInput: document.getElementById("searchInput"),
           sourceFilter: document.getElementById("sourceFilter"),
+          categoryFilter: document.getElementById("categoryFilter"),
           minPriceInput: document.getElementById("minPriceInput"),
           maxPriceInput: document.getElementById("maxPriceInput"),
           sortSelect: document.getElementById("sortSelect"),
@@ -935,6 +968,7 @@
           [
             elements.searchInput,
             elements.sourceFilter,
+            elements.categoryFilter,
             elements.minPriceInput,
             elements.maxPriceInput,
             elements.sortSelect,
@@ -1028,6 +1062,7 @@
           const normalized = normalizePayload(payload, loadedFromStorage);
           state.dataset = normalized.items;
           state.meta = normalized.meta;
+          state.uiCategories = normalized.meta.manifestCategories || [];
           state.filtered = normalized.items.slice();
 
           const payloadAffiliate = normalizeAffiliateUsername(
@@ -1042,6 +1077,7 @@
           elements.affiliateInput.value = state.settings.affiliateUsername;
 
           populateSourceFilter(state.dataset);
+          populateCategoryFilter(state.uiCategories);
           refreshStorageButtonState();
           renderAffiliateUi();
           render();
@@ -1054,9 +1090,15 @@
             : Array.isArray(root)
               ? root
               : [];
+          const manifestCategories = extractManifestCategories(root);
+          const manifestCategoryIds = new Set(
+            manifestCategories.map(function (category) {
+              return category.id;
+            }),
+          );
           const dedupedItems = dedupeItems(
             incomingItems.map(function (item, index) {
-              return normalizeItem(item, root, index);
+              return normalizeItem(item, root, index, manifestCategoryIds);
             }),
           );
 
@@ -1073,6 +1115,7 @@
               normalizeAffiliateUsername(
                 readPath(root, ["affiliate", "username"]) || "",
               ) || DEFAULT_AFFILIATE_USERNAME,
+            manifestCategories: manifestCategories,
             loadedFromStorage: loadedFromStorage,
             stats: buildStats(
               dedupedItems,
@@ -1088,7 +1131,33 @@
           };
         }
 
-        function normalizeItem(item, root, index) {
+        function extractManifestCategories(root) {
+          const datasets =
+            readPath(root, ["manifest", "datasets"]) ||
+            readPath(root, ["datasets"]) ||
+            [];
+          const seen = new Set();
+          const categories = [];
+
+          (Array.isArray(datasets) ? datasets : []).forEach(function (dataset) {
+            const label = cleanText(dataset && dataset.category);
+            const id = normalizeCategoryId(label);
+
+            if (!id || seen.has(id)) {
+              return;
+            }
+
+            seen.add(id);
+            categories.push({
+              id: id,
+              label: getCategoryLabel(id),
+            });
+          });
+
+          return categories;
+        }
+
+        function normalizeItem(item, root, index, manifestCategoryIds) {
           const source = cleanText(
             item && item.source
               ? item.source
@@ -1100,14 +1169,21 @@
             readPath(item, ["raw", "href"]),
           ]);
           const sourcePageName = resolveItemSourcePageName(item, root);
+          const title = cleanText(
+            item && item.title ? item.title : "Névtelen termék",
+          );
+          const normalizedTitle = buildNormalizedTitle(title, sourcePageName);
+          const category = resolveCategoryId(
+            item,
+            normalizedTitle,
+            manifestCategoryIds,
+          );
 
           return {
             ...(item || {}),
             __index: index,
             __json: item && typeof item === "object" ? item : {},
-            title: cleanText(
-              item && item.title ? item.title : "Névtelen termék",
-            ),
+            title: title,
             itemId: cleanText(item && item.itemId ? item.itemId : ""),
             price: parsePrice(item ? item.price : null),
             priceLabel: cleanText(
@@ -1125,6 +1201,9 @@
             sourcePageName: sourcePageName,
             source: source || "network_getitemlist",
             sourceLabel: explainSource(source || "network_getitemlist"),
+            category: category,
+            categoryLabel: getCategoryLabel(category),
+            normalizedTitle: normalizedTitle,
             weidianUrl: resolveWeidianUrl(item),
             raw:
               item &&
@@ -1224,6 +1303,33 @@
           }
         }
 
+        function populateCategoryFilter(categories) {
+          const currentValue = elements.categoryFilter.value;
+          elements.categoryFilter.innerHTML =
+            '<option value="">Összes kategória</option>';
+
+          (categories || []).forEach(function (category) {
+            const option = document.createElement("option");
+            option.value = category.id;
+            option.textContent = category.label;
+            elements.categoryFilter.appendChild(option);
+          });
+
+          const otherOption = document.createElement("option");
+          otherOption.value = "__uncategorized";
+          otherOption.textContent = "Kategorizálatlan";
+          elements.categoryFilter.appendChild(otherOption);
+
+          if (
+            (categories || []).some(function (category) {
+              return category.id === currentValue;
+            }) ||
+            currentValue === "__uncategorized"
+          ) {
+            elements.categoryFilter.value = currentValue;
+          }
+        }
+
         function render() {
           const filtered = applyFilters(state.dataset);
           state.filtered = filtered;
@@ -1245,19 +1351,25 @@
         }
 
         function applyFilters(items) {
-          const search = cleanText(elements.searchInput.value).toLowerCase();
+          const search = normalizeTextForMatch(elements.searchInput.value);
+          const searchTerms = expandSearchTerms(elements.searchInput.value);
+          const searchCategory = findCategoryByKeyword(search);
           const source = elements.sourceFilter.value;
+          const category = elements.categoryFilter.value;
           const minPrice = parseNumberInput(elements.minPriceInput.value);
           const maxPrice = parseNumberInput(elements.maxPriceInput.value);
           const sort = elements.sortSelect.value;
 
           const filtered = items.filter(function (item) {
             const haystack = [
+              item.normalizedTitle,
               item.title,
               item.itemId,
               item.source,
               item.sourceLabel,
               item.sourcePageName,
+              item.category,
+              item.categoryLabel,
               item.priceLabel,
               item.url,
               item.tp,
@@ -1266,9 +1378,27 @@
             ]
               .join(" ")
               .toLowerCase();
+            const normalizedHaystack = normalizeTextForMatch(haystack);
+            const matchesSearch =
+              !search ||
+              searchTerms.some(function (term) {
+                return normalizedHaystack.includes(term);
+              }) ||
+              (searchCategory && item.category === searchCategory.id);
 
-            if (search && !haystack.includes(search)) return false;
+            if (!matchesSearch) return false;
             if (source && item.source !== source) return false;
+            if (
+              category === "__uncategorized" &&
+              cleanText(item.category || "")
+            )
+              return false;
+            if (
+              category &&
+              category !== "__uncategorized" &&
+              item.category !== category
+            )
+              return false;
             if (
               minPrice !== null &&
               (item.price === null || item.price < minPrice)
@@ -1357,8 +1487,15 @@
             title.className = "product-title";
             title.textContent = item.title || "Névtelen termék";
 
+            const categoryBadge = document.createElement("div");
+            categoryBadge.className = "category-badge";
+            categoryBadge.textContent = item.categoryLabel || "Kategorizálatlan";
+
             const info = document.createElement("div");
             info.className = "product-info";
+            info.appendChild(
+              createInfoRow("Kategória", item.categoryLabel || "Kategorizálatlan"),
+            );
             info.appendChild(createInfoRow("Ár", formatPriceDisplay(item)));
             info.appendChild(
               createInfoRow(
@@ -1398,6 +1535,7 @@
             links.appendChild(detailsButton);
 
             body.appendChild(title);
+            body.appendChild(categoryBadge);
             body.appendChild(info);
             body.appendChild(links);
 
@@ -1564,6 +1702,7 @@
 
             worksheet.columns = [
               { header: "Név", key: "name", width: 44 },
+              { header: "Kategória", key: "category", width: 18 },
               { header: "Kép", key: "imagePreview", width: 28 },
               { header: "Ár (USD)", key: "priceUsd", width: 14 },
               { header: "Ár (HUF kb.)", key: "priceHuf", width: 18 },
@@ -1575,7 +1714,7 @@
             ];
 
             worksheet.views = [{ state: "frozen", ySplit: 1 }];
-            worksheet.autoFilter = "A1:I1";
+            worksheet.autoFilter = "A1:J1";
 
             const headerRow = worksheet.getRow(1);
             headerRow.height = 22;
@@ -1597,6 +1736,7 @@
               const exportItem = createExportItem(item);
               const row = worksheet.addRow({
                 name: exportItem.title || "",
+                category: exportItem.categoryLabel || "",
                 imagePreview: exportItem.image ? "Kép" : "Nincs kép",
                 priceUsd:
                   exportItem.price !== null && exportItem.price !== undefined
@@ -1736,6 +1876,9 @@
           base.affiliateUrl = resolveItemAffiliateUrl(item);
           base.sellerName = item.sourcePageName || "EastMallBuy listaoldal";
           base.source = item.source || "";
+          base.category = item.category || "";
+          base.categoryLabel = item.categoryLabel || getCategoryLabel(item.category);
+          base.normalizedTitle = item.normalizedTitle || "";
           base.raw = item.raw || {};
           return base;
         }
@@ -1769,7 +1912,7 @@
             });
 
             worksheet.addImage(imageId, {
-              tl: { col: 1.1, row: rowNumber - 0.85 },
+              tl: { col: 2.1, row: rowNumber - 0.85 },
               ext: {
                 width: XLSX_IMAGE_SIZE_PX,
                 height: XLSX_IMAGE_SIZE_PX,
@@ -1847,6 +1990,7 @@
         function resetFilters() {
           elements.searchInput.value = "";
           elements.sourceFilter.value = "";
+          elements.categoryFilter.value = "";
           elements.minPriceInput.value = "";
           elements.maxPriceInput.value = "";
           elements.sortSelect.value = "default";
@@ -2227,6 +2371,7 @@
             pageTitle: "",
             sourcePageName: "EastMallBuy listaoldal",
             affiliateUsername: DEFAULT_AFFILIATE_USERNAME,
+            manifestCategories: [],
             loadedFromStorage: false,
             stats: buildStats([], {}, false),
             debug: null,
@@ -2302,6 +2447,28 @@
           return String(value || "")
             .replace(/\s+/g, " ")
             .trim();
+        }
+
+        function buildNormalizedTitle(title, sourcePageName) {
+          return normalizeTextForMatch([title, sourcePageName].join(" "));
+        }
+
+        function resolveCategoryId(item, normalizedTitle, manifestCategoryIds) {
+          const incoming = cleanText(
+            (item && (item.category || item.categoryId)) ||
+              readPath(item, ["raw", "category"]) ||
+              "",
+          );
+          const allowedCategoryIds =
+            manifestCategoryIds instanceof Set ? manifestCategoryIds : new Set();
+          const incomingCategoryId = normalizeCategoryId(incoming) || incoming;
+
+          if (incomingCategoryId && allowedCategoryIds.has(incomingCategoryId)) {
+            return incomingCategoryId;
+          }
+
+          const detected = detectCategory(normalizedTitle);
+          return detected && allowedCategoryIds.has(detected) ? detected : "";
         }
 
         function firstNonEmptyString(values) {
